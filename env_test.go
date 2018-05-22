@@ -14,6 +14,7 @@
 package env
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -104,6 +105,25 @@ func TestUnmarshalUnsupported(t *testing.T) {
 	err := Unmarshal(environ, &unsupportedStruct)
 	if err != ErrUnsupportedType {
 		t.Errorf("Expected error 'ErrUnsupportedType' but got '%s'", err)
+	}
+}
+
+func TestUnmarshalFromEnviron(t *testing.T) {
+	environ := os.Environ()
+
+	m, err := EnvironToMap(environ)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	var validStruct ValidStruct
+	err = UnmarshalFromEnviron(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if validStruct.Home != m["HOME"] {
+		t.Errorf("Expected environment variable to be '%s' but got '%s'", m["HOME"], validStruct.Home)
 	}
 }
 

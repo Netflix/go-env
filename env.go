@@ -19,6 +19,7 @@ package env
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 )
@@ -35,7 +36,7 @@ var (
 	ErrUnexportedField = errors.New("field must be exported")
 )
 
-// Unmarshal parses an environment mapping and stored the result in the value
+// Unmarshal parses an environment mapping and stores the result in the value
 // pointed to by v. If v is nil or not a pointer to a struct, Unmarshal returns
 // an ErrInvalidValue.
 //
@@ -82,7 +83,11 @@ func Unmarshal(data map[string]string, v interface{}) error {
 			return ErrUnexportedField
 		}
 
-		envVar := data[tag]
+		envVar, ok := data[tag]
+		if !ok {
+			continue
+		}
+
 		err := set(fieldValue, envVar)
 		if err != nil {
 			return err
@@ -113,6 +118,25 @@ func set(field reflect.Value, value string) error {
 	}
 
 	return nil
+}
+
+// UnmarshalFromEnviron parses an environment mapping from os.Environ and
+// stores the result in the value pointed to by v. If v is nil or not a
+// pointer to a struct, UnmarshalFromEnviron returns an ErrInvalidValue.
+//
+// Fields tagged with "env" will have the unmarshalled data of the matching key
+// from data. If the tagged field is not exported, UnmarshalFromEnviron returns
+// ErrUnexportedField.
+//
+// If the field has a type that is unsupported, UnmarshalFromEnviron returns
+// ErrUnsupportedType.
+func UnmarshalFromEnviron(v interface{}) error {
+	m, err := EnvironToMap(os.Environ())
+	if err != nil {
+		return err
+	}
+
+	return Unmarshal(m, v)
 }
 
 // Marshal returns an environment mapping of v. If v is nil or not a pointer,
