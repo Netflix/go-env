@@ -1,6 +1,6 @@
 # go-env
 
-[![NetflixOSS Lifecycle](https://img.shields.io/osslifecycle/Netflix-Skunkworks/go-env.svg)]()
+[![Build Status](https://travis-ci.com/Netflix-Skunkworks/go-env.svg?token=qVsub6qcmXEV63K5Cykm&branch=master)](https://travis-ci.com/Netflix-Skunkworks/go-env)
 
 Package env provides an "env" struct field tag to marshal and unmarshal environment variables.
 
