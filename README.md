@@ -26,13 +26,8 @@ type Environment struct {
 }
 
 func main() {
-  m, err := env.EnvironToMap(os.Environ())
-  if err != nil {
-    log.Fatal(err)
-  }
-
   var environment env.Environment
-  err = env.Unmarshal(m, &environment)
+  err = env.UnmarshalFromEnviron(&environment)
   if err != nil {
     log.Fatal(err)
   }
