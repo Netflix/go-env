@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.com/Netflix-Skunkworks/go-env.svg?token=qVsub6qcmXEV63K5Cykm&branch=master)](https://travis-ci.com/Netflix-Skunkworks/go-env)
 
-Package env provides an "env" struct field tag to marshal and unmarshal environment variables.
+Package env provides an `env` struct field tag to marshal and unmarshal environment variables.
 
 ## Usage
 

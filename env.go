@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package env provides an "env" struct field tag to marshal and unmarshal
+// Package env provides an `env` struct field tag to marshal and unmarshal
 // environment variables.
 package env
 
