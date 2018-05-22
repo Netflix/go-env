@@ -44,6 +44,19 @@ func TestEnvironToMapInvalid(t *testing.T) {
 	}
 }
 
+func TestEnvironToMapSplitN(t *testing.T) {
+	environ := []string{"SPLIT=one=two"}
+
+	m, err := EnvironToMap(environ)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if m["SPLIT"] != "one=two" {
+		t.Errorf("Expected map value to be '%s' but got '%s'", "one=two", m["SPLIT"])
+	}
+}
+
 func TestMapToEnviron(t *testing.T) {
 	m := map[string]string{
 		"HOME":      "/home/test",

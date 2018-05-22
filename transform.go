@@ -30,7 +30,7 @@ var (
 func EnvironToMap(environ []string) (map[string]string, error) {
 	m := make(map[string]string)
 	for _, v := range environ {
-		parts := strings.Split(v, "=")
+		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 {
 			return nil, ErrInvalidEnviron
 		}
