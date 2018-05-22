@@ -26,9 +26,7 @@ type Environment struct {
 }
 
 func main() {
-  environ := os.Environ()
-
-  m, err := env.EnvironToMap(environ)
+  m, err := env.EnvironToMap(os.Environ())
   if err != nil {
     log.Fatal(err)
   }
