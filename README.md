@@ -1,6 +1,9 @@
 # go-env
 
-[![Build Status](https://travis-ci.com/Netflix-Skunkworks/go-env.svg?token=qVsub6qcmXEV63K5Cykm&branch=master)](https://travis-ci.com/Netflix-Skunkworks/go-env)
+[![Build Status](https://travis-ci.org/Netflix/go-env.svg?branch=master)](https://travis-ci.org/Netflix/go-env)
+[![GoDoc](https://godoc.org/github.com/Netflix/go-env?status.svg)](https://godoc.org/github.com/Netflix/go-env)
+[![NetflixOSS Lifecycle](https://img.shields.io/osslifecycle/Netflix/go-expect.svg)]()
+
 
 Package env provides an `env` struct field tag to marshal and unmarshal environment variables.
 
@@ -12,7 +15,7 @@ package main
 import (
   "log"
 
-  env "github.com/Netflix-Skunkworks/go-env"
+  env "github.com/Netflix/go-env"
 )
 
 type Environment struct {
