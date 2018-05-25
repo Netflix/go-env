@@ -28,6 +28,15 @@ type ValidStruct struct {
 		Workspace string `env:"WORKSPACE"`
 	}
 
+	// PointerString should be nil if unset, with "" being a valid value.
+	PointerString *string `env:"POINTER_STRING"`
+
+	// PointerInt should work along with other supported types.
+	PointerInt *int `env:"POINTER_INT"`
+
+	// PointerPointerString should be recursed into.
+	PointerPointerString **string `env:"POINTER_POINTER_STRING"`
+
 	// Extra should remain with a zero-value because it has no "env" field tag.
 	Extra string
 
@@ -59,12 +68,16 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
-	if validStruct.Home != environ["HOME"] {
-		t.Errorf("Expected field value to be '%s' but got '%s'", environ["HOME"], validStruct.Home)
+	if validStruct.Home != "/home/test" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "/home/test", validStruct.Home)
 	}
 
-	if validStruct.Jenkins.Workspace != environ["WORKSPACE"] {
-		t.Errorf("Expected field value to be '%s' but got '%s'", environ["WORKSPACE"], validStruct.Jenkins.Workspace)
+	if validStruct.Jenkins.Workspace != "/mnt/builds/slave/workspace/test" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "/mnt/builds/slave/workspace/test", validStruct.Jenkins.Workspace)
+	}
+
+	if validStruct.PointerString != nil {
+		t.Errorf("Expected field value to be '%v' but got '%v'", nil, validStruct.PointerString)
 	}
 
 	if validStruct.Extra != "" {
@@ -77,6 +90,54 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Bool != true {
 		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Bool)
+	}
+
+	v, ok := environ["HOME"]
+	if ok {
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "HOME", v)
+	}
+
+	v, ok = environ["EXTRA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "EXTRA")
+	} else if v != "extra" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "extra", v)
+	}
+}
+
+func TestUnmarshalPointer(t *testing.T) {
+	environ := map[string]string{
+		"POINTER_STRING":         "",
+		"POINTER_INT":            "1",
+		"POINTER_POINTER_STRING": "",
+	}
+
+	var validStruct ValidStruct
+	err := Unmarshal(environ, &validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if validStruct.PointerString == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", "", nil)
+	} else if *validStruct.PointerString != "" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "", *validStruct.PointerString)
+	}
+
+	if validStruct.PointerInt == nil {
+		t.Errorf("Expected field value to be '%d' but got '%v'", 1, nil)
+	} else if *validStruct.PointerInt != 1 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 1, *validStruct.PointerInt)
+	}
+
+	if validStruct.PointerPointerString == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", "", nil)
+	} else {
+		if *validStruct.PointerPointerString == nil {
+			t.Errorf("Expected field value to be '%s' but got '%v'", "", nil)
+		} else if **validStruct.PointerPointerString != "" {
+			t.Errorf("Expected field value to be '%s' but got '%s'", "", **validStruct.PointerPointerString)
+		}
 	}
 }
 
@@ -111,7 +172,7 @@ func TestUnmarshalUnsupported(t *testing.T) {
 func TestUnmarshalFromEnviron(t *testing.T) {
 	environ := os.Environ()
 
-	m, err := EnvironToMap(environ)
+	m, err := EnvironToEnvSet(environ)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}

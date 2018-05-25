@@ -19,7 +19,7 @@ type Environment struct {
 	Home string `env:"HOME"`
 
 	Jenkins struct {
-		BuildId     string `env:"BUILD_ID"`
+		BuildId     *string `env:"BUILD_ID"`
 		BuildNumber int    `env:"BUILD_NUMBER"`
 		Ci          bool   `env:"CI"`
 	}
@@ -33,5 +33,23 @@ func main() {
   }
 
   // ...
+
+  es, err := env.Marshal(environment)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  cs := env.ChangeSet{
+    "HOME": "/tmp/edgarl",
+    "BUILD_ID": nil,
+    "BUILD_NUMBER": nil,
+  }
+  es.Apply(cs)
+
+  environment = env.Environment{}
+  err = env.Unmarshal(es, &environment)
+  if err != nil {
+    log.Fatal(err)
+  }
 }
 ```

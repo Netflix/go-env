@@ -18,10 +18,37 @@ import (
 	"testing"
 )
 
-func TestEnvironToMap(t *testing.T) {
+func TestEnvSetApply(t *testing.T) {
+	es := EnvSet{
+		"HOME":      "/home/edgarl",
+		"WORKSPACE": "/mnt/builds/slave/workspace/test",
+	}
+
+	workspace := ""
+	cs := ChangeSet{
+		"HOME":      nil,        // os.Unsetenv("HOME")
+		"WORKSPACE": &workspace, // os.Setenv("WORKSPACE", "")
+	}
+
+	es.Apply(cs)
+
+	v, ok := es["HOME"]
+	if ok {
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "HOME", v)
+	}
+
+	v, ok = es["WORKSPACE"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "WORKSPACE")
+	} else if v != "" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", workspace, v)
+	}
+}
+
+func TestEnvironToEnvSet(t *testing.T) {
 	environ := []string{"HOME=/home/edgarl", "WORKSPACE=/mnt/builds/slave/workspace/test"}
 
-	m, err := EnvironToMap(environ)
+	m, err := EnvironToEnvSet(environ)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
@@ -35,19 +62,19 @@ func TestEnvironToMap(t *testing.T) {
 	}
 }
 
-func TestEnvironToMapInvalid(t *testing.T) {
+func TestEnvironToEnvSetInvalid(t *testing.T) {
 	environ := []string{"INVALID"}
 
-	_, err := EnvironToMap(environ)
+	_, err := EnvironToEnvSet(environ)
 	if err != ErrInvalidEnviron {
 		t.Errorf("Expected 'ErrInvalidEnviron' but got '%s'", err)
 	}
 }
 
-func TestEnvironToMapSplitN(t *testing.T) {
+func TestEnvironToEnvSetSplitN(t *testing.T) {
 	environ := []string{"SPLIT=one=two"}
 
-	m, err := EnvironToMap(environ)
+	m, err := EnvironToEnvSet(environ)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
@@ -57,13 +84,13 @@ func TestEnvironToMapSplitN(t *testing.T) {
 	}
 }
 
-func TestMapToEnviron(t *testing.T) {
-	m := map[string]string{
+func TestEnvSetToEnviron(t *testing.T) {
+	m := EnvSet{
 		"HOME":      "/home/test",
 		"WORKSPACE": "/mnt/builds/slave/workspace/test",
 	}
 
-	environ := MapToEnviron(m)
+	environ := EnvSetToEnviron(m)
 	if len(environ) != 2 {
 		t.Errorf("Expected environ to have %d items but instead got %d", 2, len(environ))
 	}

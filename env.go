@@ -36,17 +36,18 @@ var (
 	ErrUnexportedField = errors.New("field must be exported")
 )
 
-// Unmarshal parses an environment mapping and stores the result in the value
-// pointed to by v. If v is nil or not a pointer to a struct, Unmarshal returns
-// an ErrInvalidValue.
+// Unmarshal parses an EnvSet and stores the result in the value pointed to by
+// v. Fields that are matched in v will be deleted from EnvSet, resulting in
+// an EnvSet with the remaining environment variables. If v is nil or not a
+// pointer to a struct, Unmarshal returns an ErrInvalidValue.
 //
-// Fields tagged with "env" will have the unmarshalled data of the matching key
-// from data. If the tagged field is not exported, Unmarshal returns
+// Fields tagged with "env" will have the unmarshalled EnvSet of the matching
+// key from EnvSet. If the tagged field is not exported, Unmarshal returns
 // ErrUnexportedField.
 //
 // If the field has a type that is unsupported, Unmarshal returns
 // ErrUnsupportedType.
-func Unmarshal(data map[string]string, v interface{}) error {
+func Unmarshal(es EnvSet, v interface{}) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return ErrInvalidValue
@@ -59,60 +60,68 @@ func Unmarshal(data map[string]string, v interface{}) error {
 
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
-		fieldValue := rv.Field(i)
-		switch fieldValue.Kind() {
+		valueField := rv.Field(i)
+		switch valueField.Kind() {
 		case reflect.Struct:
-			if !fieldValue.Addr().CanInterface() {
+			if !valueField.Addr().CanInterface() {
 				continue
 			}
 
-			iface := fieldValue.Addr().Interface()
-			err := Unmarshal(data, iface)
+			iface := valueField.Addr().Interface()
+			err := Unmarshal(es, iface)
 			if err != nil {
 				return err
 			}
 		}
 
-		structField := t.Field(i)
-		tag := structField.Tag.Get("env")
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
 
-		if !fieldValue.CanSet() {
+		if !valueField.CanSet() {
 			return ErrUnexportedField
 		}
 
-		envVar, ok := data[tag]
+		envVar, ok := es[tag]
 		if !ok {
 			continue
 		}
 
-		err := set(fieldValue, envVar)
+		err := set(typeField.Type, valueField, envVar)
 		if err != nil {
 			return err
 		}
+		delete(es, tag)
 	}
 
 	return nil
 }
 
-func set(field reflect.Value, value string) error {
-	switch field.Kind() {
+func set(t reflect.Type, f reflect.Value, value string) error {
+	switch t.Kind() {
+	case reflect.Ptr:
+		ptr := reflect.New(t.Elem())
+		err := set(t.Elem(), ptr.Elem(), value)
+		if err != nil {
+			return err
+		}
+		f.Set(ptr)
 	case reflect.String:
-		field.SetString(value)
+		f.SetString(value)
 	case reflect.Bool:
 		v, err := strconv.ParseBool(value)
 		if err != nil {
 			return err
 		}
-		field.SetBool(v)
+		f.SetBool(v)
 	case reflect.Int:
 		v, err := strconv.Atoi(value)
 		if err != nil {
 			return err
 		}
-		field.SetInt(int64(v))
+		f.SetInt(int64(v))
 	default:
 		return ErrUnsupportedType
 	}
@@ -120,33 +129,33 @@ func set(field reflect.Value, value string) error {
 	return nil
 }
 
-// UnmarshalFromEnviron parses an environment mapping from os.Environ and
-// stores the result in the value pointed to by v. If v is nil or not a
-// pointer to a struct, UnmarshalFromEnviron returns an ErrInvalidValue.
+// UnmarshalFromEnviron parses an EnvSet from os.Environ and stores the result
+// in the value pointed to by v. If v is nil or not a pointer to a struct,
+// UnmarshalFromEnviron returns an ErrInvalidValue.
 //
-// Fields tagged with "env" will have the unmarshalled data of the matching key
-// from data. If the tagged field is not exported, UnmarshalFromEnviron returns
-// ErrUnexportedField.
+// Fields tagged with "env" will have the unmarshalled EnvSet of the matching
+// key from EnvSet. If the tagged field is not exported, UnmarshalFromEnviron
+// returns ErrUnexportedField.
 //
 // If the field has a type that is unsupported, UnmarshalFromEnviron returns
 // ErrUnsupportedType.
 func UnmarshalFromEnviron(v interface{}) error {
-	m, err := EnvironToMap(os.Environ())
+	es, err := EnvironToEnvSet(os.Environ())
 	if err != nil {
 		return err
 	}
 
-	return Unmarshal(m, v)
+	return Unmarshal(es, v)
 }
 
-// Marshal returns an environment mapping of v. If v is nil or not a pointer,
-// Marshal returns an ErrInvalidValue.
+// Marshal returns an EnvSet of v. If v is nil or not a pointer, Marshal returns
+// an ErrInvalidValue.
 //
 // Marshal uses fmt.Sprintf to transform encountered values to its default
 // string format. Values without the "env" field tag are ignored.
 //
 // Nested structs are traversed recursively.
-func Marshal(v interface{}) (map[string]string, error) {
+func Marshal(v interface{}) (EnvSet, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return nil, ErrInvalidValue
@@ -157,7 +166,7 @@ func Marshal(v interface{}) (map[string]string, error) {
 		return nil, ErrInvalidValue
 	}
 
-	data := make(map[string]string)
+	es := make(EnvSet)
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
 		fieldValue := rv.Field(i)
@@ -168,13 +177,13 @@ func Marshal(v interface{}) (map[string]string, error) {
 			}
 
 			iface := fieldValue.Addr().Interface()
-			nestedData, err := Marshal(iface)
+			nes, err := Marshal(iface)
 			if err != nil {
 				return nil, err
 			}
 
-			for k, v := range nestedData {
-				data[k] = v
+			for k, v := range nes {
+				es[k] = v
 			}
 		}
 
@@ -184,8 +193,8 @@ func Marshal(v interface{}) (map[string]string, error) {
 			continue
 		}
 
-		data[tag] = fmt.Sprintf("%v", fieldValue.Interface())
+		es[tag] = fmt.Sprintf("%v", fieldValue.Interface())
 	}
 
-	return data, nil
+	return es, nil
 }

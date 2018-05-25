@@ -24,11 +24,31 @@ var (
 	ErrInvalidEnviron = errors.New("items in environ must have format key=value")
 )
 
-// EnvironToMap transforms a slice of string with the format "key=value" into
-// the corresponding map of key-value pairs. If any item in environ does follow
-// the format, EnvironToMap returns ErrInvalidEnviron.
-func EnvironToMap(environ []string) (map[string]string, error) {
-	m := make(map[string]string)
+// EnvSet represents a set of environment variables.
+type EnvSet map[string]string
+
+// ChangeSet represents a set of environment variables changes, corresponding to
+// os.Setenv and os.Unsetenv operations.
+type ChangeSet map[string]*string
+
+// Apply applies a ChangeSet to EnvSet, modifying its contents.
+func (e EnvSet) Apply(cs ChangeSet) {
+	for k, v := range cs {
+		if v == nil {
+			// Equivalent to os.Unsetenv
+			delete(e, k)
+		} else {
+			// Equivalent to os.Setenv
+			e[k] = *v
+		}
+	}
+}
+
+// EnvironToEnvSet transforms a slice of string with the format "key=value" into
+// the corresponding EnvSet. If any item in environ does follow the format,
+// EnvironToEnvSet returns ErrInvalidEnviron.
+func EnvironToEnvSet(environ []string) (EnvSet, error) {
+	m := make(EnvSet)
 	for _, v := range environ {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 {
@@ -39,9 +59,9 @@ func EnvironToMap(environ []string) (map[string]string, error) {
 	return m, nil
 }
 
-// MapToEnviron transforms a map of string to string into a slice of strings
-// with the format "key=value".
-func MapToEnviron(m map[string]string) []string {
+// EnvSetToEnviron transforms a EnvSet into a slice of strings with the format
+// "key=value".
+func EnvSetToEnviron(m EnvSet) []string {
 	var environ []string
 	for k, v := range m {
 		environ = append(environ, fmt.Sprintf("%s=%s", k, v))
