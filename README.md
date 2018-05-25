@@ -32,14 +32,16 @@ type Environment struct {
 
 func main() {
   var environment env.Environment
-  _, err = env.UnmarshalFromEnviron(&environment)
+  es, err := env.UnmarshalFromEnviron(&environment)
   if err != nil {
     log.Fatal(err)
   }
+  // Remaining environment variables.
+  environment.Extras = es
 
   // ...
 
-  es, err := env.Marshal(environment)
+  es, err = env.Marshal(environment)
   if err != nil {
     log.Fatal(err)
   }
@@ -57,7 +59,6 @@ func main() {
     log.Fatal(err)
   }
 
-  // Remaining environment variables.
   environment.Extras = es
 }
 ```
