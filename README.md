@@ -19,20 +19,20 @@ import (
 )
 
 type Environment struct {
-	Home string `env:"HOME"`
+  Home string `env:"HOME"`
 
-	Jenkins struct {
-		BuildId     *string `env:"BUILD_ID"`
-		BuildNumber int    `env:"BUILD_NUMBER"`
-		Ci          bool   `env:"CI"`
-	}
+  Jenkins struct {
+    BuildId     *string `env:"BUILD_ID"`
+    BuildNumber int    `env:"BUILD_NUMBER"`
+    Ci          bool   `env:"CI"`
+  }
 
   Extras env.EnvSet
 }
 
 func main() {
   var environment env.Environment
-  err = env.UnmarshalFromEnviron(&environment)
+  _, err = env.UnmarshalFromEnviron(&environment)
   if err != nil {
     log.Fatal(err)
   }
