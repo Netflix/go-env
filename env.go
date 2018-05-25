@@ -130,8 +130,9 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 }
 
 // UnmarshalFromEnviron parses an EnvSet from os.Environ and stores the result
-// in the value pointed to by v. If v is nil or not a pointer to a struct,
-// UnmarshalFromEnviron returns an ErrInvalidValue.
+// in the value pointed to by v. Fields that weren't matched in v are returned
+// in an EnvSet with the remaining environment variables. If v is nil or not a
+// pointer to a struct, UnmarshalFromEnviron returns an ErrInvalidValue.
 //
 // Fields tagged with "env" will have the unmarshalled EnvSet of the matching
 // key from EnvSet. If the tagged field is not exported, UnmarshalFromEnviron
@@ -139,13 +140,13 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 //
 // If the field has a type that is unsupported, UnmarshalFromEnviron returns
 // ErrUnsupportedType.
-func UnmarshalFromEnviron(v interface{}) error {
+func UnmarshalFromEnviron(v interface{}) (EnvSet, error) {
 	es, err := EnvironToEnvSet(os.Environ())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return Unmarshal(es, v)
+	return es, Unmarshal(es, v)
 }
 
 // Marshal returns an EnvSet of v. If v is nil or not a pointer, Marshal returns

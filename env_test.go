@@ -172,19 +172,26 @@ func TestUnmarshalUnsupported(t *testing.T) {
 func TestUnmarshalFromEnviron(t *testing.T) {
 	environ := os.Environ()
 
-	m, err := EnvironToEnvSet(environ)
+	es, err := EnvironToEnvSet(environ)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
+
+	home := es["HOME"]
 
 	var validStruct ValidStruct
-	err = UnmarshalFromEnviron(&validStruct)
+	es, err = UnmarshalFromEnviron(&validStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
-	if validStruct.Home != m["HOME"] {
-		t.Errorf("Expected environment variable to be '%s' but got '%s'", m["HOME"], validStruct.Home)
+	if validStruct.Home != home {
+		t.Errorf("Expected environment variable to be '%s' but got '%s'", home, validStruct.Home)
+	}
+
+	v, ok := es["HOME"]
+	if ok {
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "HOME", v)
 	}
 }
 

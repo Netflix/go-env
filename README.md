@@ -26,6 +26,8 @@ type Environment struct {
 		BuildNumber int    `env:"BUILD_NUMBER"`
 		Ci          bool   `env:"CI"`
 	}
+
+  Extras env.EnvSet
 }
 
 func main() {
@@ -54,5 +56,8 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+
+  // Remaining environment variables.
+  environment.Extras = es
 }
 ```
