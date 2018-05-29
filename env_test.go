@@ -37,6 +37,9 @@ type ValidStruct struct {
 	// PointerPointerString should be recursed into.
 	PointerPointerString **string `env:"POINTER_POINTER_STRING"`
 
+	// PointerMissing should not be set if the environment variable is missing.
+	PointerMissing *string `env:"POINTER_MISSING"`
+
 	// Extra should remain with a zero-value because it has no "env" field tag.
 	Extra string
 
@@ -138,6 +141,10 @@ func TestUnmarshalPointer(t *testing.T) {
 		} else if **validStruct.PointerPointerString != "" {
 			t.Errorf("Expected field value to be '%s' but got '%s'", "", **validStruct.PointerPointerString)
 		}
+	}
+
+	if validStruct.PointerMissing != nil {
+		t.Errorf("Expected field value to be '%v' but got '%s'", nil, *validStruct.PointerMissing)
 	}
 }
 
@@ -257,5 +264,18 @@ func TestMarshalInvalid(t *testing.T) {
 	_, err = Marshal(&ptr)
 	if err != ErrInvalidValue {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
+	}
+}
+
+func TestMarshalPointer(t *testing.T) {
+	var validStruct ValidStruct
+	es, err := Marshal(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	v, ok := es["POINTER_STRING"]
+	if ok {
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "POINTER_STRING", v)
 	}
 }

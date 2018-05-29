@@ -170,14 +170,14 @@ func Marshal(v interface{}) (EnvSet, error) {
 	es := make(EnvSet)
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
-		fieldValue := rv.Field(i)
-		switch fieldValue.Kind() {
+		valueField := rv.Field(i)
+		switch valueField.Kind() {
 		case reflect.Struct:
-			if !fieldValue.Addr().CanInterface() {
+			if !valueField.Addr().CanInterface() {
 				continue
 			}
 
-			iface := fieldValue.Addr().Interface()
+			iface := valueField.Addr().Interface()
 			nes, err := Marshal(iface)
 			if err != nil {
 				return nil, err
@@ -188,13 +188,17 @@ func Marshal(v interface{}) (EnvSet, error) {
 			}
 		}
 
-		structField := t.Field(i)
-		tag := structField.Tag.Get("env")
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
 
-		es[tag] = fmt.Sprintf("%v", fieldValue.Interface())
+		if typeField.Type.Kind() == reflect.Ptr && valueField.IsNil() {
+			continue
+		}
+
+		es[tag] = fmt.Sprintf("%v", valueField.Interface())
 	}
 
 	return es, nil
