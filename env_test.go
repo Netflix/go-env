@@ -26,6 +26,9 @@ type ValidStruct struct {
 	// Jenkins should be recursed into.
 	Jenkins struct {
 		Workspace string `env:"WORKSPACE"`
+
+		// PointerMissing should not be set if the environment variable is missing.
+		PointerMissing *string `env:"JENKINS_POINTER_MISSING"`
 	}
 
 	// PointerString should be nil if unset, with "" being a valid value.
@@ -218,7 +221,8 @@ func TestMarshal(t *testing.T) {
 	validStruct := ValidStruct{
 		Home: "/home/test",
 		Jenkins: struct {
-			Workspace string `env:"WORKSPACE"`
+			Workspace      string  `env:"WORKSPACE"`
+			PointerMissing *string `env:"JENKINS_POINTER_MISSING"`
 		}{
 			Workspace: "/mnt/builds/slave/workspace/test",
 		},
@@ -268,14 +272,29 @@ func TestMarshalInvalid(t *testing.T) {
 }
 
 func TestMarshalPointer(t *testing.T) {
-	var validStruct ValidStruct
+	empty := ""
+	validStruct := ValidStruct{
+		PointerString: &empty,
+	}
 	es, err := Marshal(&validStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
 	v, ok := es["POINTER_STRING"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "POINTER_STRING")
+	} else if v != "" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "", v)
+	}
+
+	v, ok = es["POINTER_MISSING"]
 	if ok {
-		t.Errorf("Expected field '%s' to not exist but got '%s'", "POINTER_STRING", v)
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "POINTER_MISSING", v)
+	}
+
+	v, ok = es["JENKINS_POINTER_MISSING"]
+	if ok {
+		t.Errorf("Expected field '%s' to not exist but got '%s'", "JENKINS_POINTER_MISSING", v)
 	}
 }

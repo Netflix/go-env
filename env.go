@@ -194,11 +194,14 @@ func Marshal(v interface{}) (EnvSet, error) {
 			continue
 		}
 
-		if typeField.Type.Kind() == reflect.Ptr && valueField.IsNil() {
-			continue
+		if typeField.Type.Kind() == reflect.Ptr {
+			if valueField.IsNil() {
+				continue
+			}
+			es[tag] = fmt.Sprintf("%v", valueField.Elem().Interface())
+		} else {
+			es[tag] = fmt.Sprintf("%v", valueField.Interface())
 		}
-
-		es[tag] = fmt.Sprintf("%v", valueField.Interface())
 	}
 
 	return es, nil
