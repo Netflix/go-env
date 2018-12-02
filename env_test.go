@@ -49,6 +49,9 @@ type ValidStruct struct {
 	// Additional supported types
 	Int  int  `env:"INT"`
 	Bool bool `env:"BOOL"`
+
+	// ExcludeField shouldn't exist in Envrion if there are no values set.
+	ExcludeField string `env:"EXCLUDE_FIELD,omitempty"`
 }
 
 type UnsupportedStruct struct {
@@ -214,6 +217,23 @@ func TestUnmarshalUnexported(t *testing.T) {
 	err := Unmarshal(environ, &unexportedStruct)
 	if err != ErrUnexportedField {
 		t.Errorf("Expected error 'ErrUnexportedField' but got '%s'", err)
+	}
+}
+
+func TestMarshalOmitempty(t *testing.T) {
+	validStruct := ValidStruct{
+		Home:  "/home/test",
+		Extra: "extra",
+		Int:   1,
+		Bool:  true,
+	}
+
+	environ, err := Marshal(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+	if _, ok := environ["EXCLUDE_FIELD"]; ok {
+		t.Errorf("Expected 'EXCLUDE_FIELD' to be excluded.")
 	}
 }
 

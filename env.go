@@ -93,6 +93,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		if err != nil {
 			return err
 		}
+
 		delete(es, tag)
 	}
 
@@ -190,7 +191,16 @@ func Marshal(v interface{}) (EnvSet, error) {
 
 		typeField := t.Field(i)
 		tag := typeField.Tag.Get("env")
-		if tag == "" {
+		if tag == "-" {
+			continue
+		}
+
+		name, opts := parseTag(tag)
+		if !isValidTag(name) {
+			continue
+		}
+
+		if opts.Contains("omitempty") {
 			continue
 		}
 
