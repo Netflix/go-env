@@ -13,52 +13,53 @@ Package env provides an `env` struct field tag to marshal and unmarshal environm
 package main
 
 import (
-  "log"
+	"log"
 
-  env "github.com/Netflix/go-env"
+	env "github.com/Netflix/go-env"
 )
 
 type Environment struct {
-  Home string `env:"HOME"`
+	Home string `env:"HOME"`
 
-  Jenkins struct {
-    BuildId     *string `env:"BUILD_ID"`
-    BuildNumber int    `env:"BUILD_NUMBER"`
-    Ci          bool   `env:"CI"`
-  }
+	Jenkins struct {
+		BuildId     *string `env:"BUILD_ID"`
+		BuildNumber int     `env:"BUILD_NUMBER"`
+		Ci          bool    `env:"CI"`
+	}
 
-  Extras env.EnvSet
+	Extras env.EnvSet
 }
 
 func main() {
-  var environment env.Environment
-  es, err := env.UnmarshalFromEnviron(&environment)
-  if err != nil {
-    log.Fatal(err)
-  }
-  // Remaining environment variables.
-  environment.Extras = es
+	var environment Environment
+	es, err := env.UnmarshalFromEnviron(&environment)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Remaining environment variables.
+	environment.Extras = es
 
-  // ...
+	// ...
 
-  es, err = env.Marshal(environment)
-  if err != nil {
-    log.Fatal(err)
-  }
+	es, err = env.Marshal(environment)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  cs := env.ChangeSet{
-    "HOME": "/tmp/edgarl",
-    "BUILD_ID": nil,
-    "BUILD_NUMBER": nil,
-  }
-  es.Apply(cs)
+	home := "/tmp/edgarl"
+	cs := env.ChangeSet{
+		"HOME":         &home,
+		"BUILD_ID":     nil,
+		"BUILD_NUMBER": nil,
+	}
+	es.Apply(cs)
 
-  environment = env.Environment{}
-  err = env.Unmarshal(es, &environment)
-  if err != nil {
-    log.Fatal(err)
-  }
+	environment = Environment{}
+	err = env.Unmarshal(es, &environment)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  environment.Extras = es
+	environment.Extras = es
 }
 ```
