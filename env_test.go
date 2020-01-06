@@ -14,7 +14,9 @@
 package env
 
 import (
+	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -214,6 +216,73 @@ func TestUnmarshalUnexported(t *testing.T) {
 	err := Unmarshal(environ, &unexportedStruct)
 	if err != ErrUnexportedField {
 		t.Errorf("Expected error 'ErrUnexportedField' but got '%s'", err)
+	}
+}
+
+type StuctWithSettings struct {
+	Bool            bool `env:"name:BOOL"`
+	Int             int  `env:"name:INT"`
+	RequiredBool    bool `env:"name:REQUIRED_BOOL;required"`
+	RequiredInt     int  `env:"name:REQUIRED_INT;required"`
+	BoolWithDefault bool `env:"name:BOOL_WITH_DEFAULT;default:true"`
+	IntWithDefault  int  `env:"name:INT_WITH_DEFAULT;default:11"`
+}
+
+func TestUnmarshalWithRequiredAndDefaultSettingsSuccess(t *testing.T) {
+	environ := map[string]string{
+		"BOOL":              "true",
+		"INT":               "1",
+		"REQUIRED_BOOL":     "false",
+		"REQUIRED_INT":      "7",
+		"BOOL_WITH_DEFAULT": "true",
+		"INT_WITH_DEFAULT":  "4",
+	}
+
+	var structWithSettings StuctWithSettings
+	err := Unmarshal(environ, &structWithSettings)
+	if err != nil {
+		t.Errorf("Expected full environ to not return error but got '%s'", err)
+	}
+}
+
+func TestUnmarshalWithRequiredAndDefaultSettingsRequiredError(t *testing.T) {
+	environ := map[string]string{
+		"BOOL":              "true",
+		"INT":               "1",
+		"BOOL_WITH_DEFAULT": "true",
+		"INT_WITH_DEFAULT":  "4",
+	}
+	var structWithSettings StuctWithSettings
+	err := Unmarshal(environ, &structWithSettings)
+	if err == nil || errors.Unwrap(err) != ErrRequiredValuesNotSet {
+		t.Fatalf("Expected ErrRequiredValuesNotSet error but got '%s'", err)
+	}
+	if strings.Index(err.Error(), "REQUIRED_BOOL") == -1 {
+		t.Error("Expected ErrRequiredValuesNotSet to include 'REQUIRED_BOOL'")
+	}
+	if strings.Index(err.Error(), "REQUIRED_INT") == -1 {
+		t.Error("Expected ErrRequiredValuesNotSet to include 'REQUIRED_INT'")
+	}
+}
+
+func TestUnmarshalWithRequiredAndDefaultSettingsDefaultFallback(t *testing.T) {
+	environ := map[string]string{
+		"BOOL":          "true",
+		"INT":           "1",
+		"REQUIRED_BOOL": "false",
+		"REQUIRED_INT":  "7",
+	}
+
+	var structWithSettings StuctWithSettings
+	err := Unmarshal(environ, &structWithSettings)
+	if err != nil {
+		t.Errorf("Expected required environ to not return error but got '%s'", err)
+	}
+	if !structWithSettings.BoolWithDefault {
+		t.Error("Expected BoolWithDefault to fallback to default value")
+	}
+	if structWithSettings.IntWithDefault != 11 {
+		t.Errorf("Expected IntWithDefault to fallback to default value 4 but got %d", structWithSettings.IntWithDefault)
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -34,6 +35,10 @@ var (
 
 	// ErrUnexportedField returned when a field with tag "env" is not exported.
 	ErrUnexportedField = errors.New("field must be exported")
+
+	// ErrRequiredValuesNotSet returned when the EnvSet does not have a value for a
+	// required variable.
+	ErrRequiredValuesNotSet = errors.New("required environment variables are not set")
 )
 
 // Unmarshal parses an EnvSet and stores the result in the value pointed to by
@@ -58,6 +63,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		return ErrInvalidValue
 	}
 
+	missingValues := []string{}
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
 		valueField := rv.Field(i)
@@ -75,25 +81,40 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		}
 
 		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
-		if tag == "" {
+		settings := parseTagSetting(typeField.Tag)
+		if len(settings) == 0 {
 			continue
 		}
+		envVar := settings["name"]
 
 		if !valueField.CanSet() {
 			return ErrUnexportedField
 		}
 
-		envVar, ok := es[tag]
-		if !ok {
-			continue
-		}
+		_, required := settings["required"]
+		defaultValue, hasDefault := settings["default"]
 
-		err := set(typeField.Type, valueField, envVar)
+		envVal, ok := es[envVar]
+		var err error
+		if !ok {
+			if hasDefault {
+				envVal = defaultValue
+			} else if required {
+				missingValues = append(missingValues, envVar)
+				continue
+			} else {
+				continue
+			}
+		}
+		err = set(typeField.Type, valueField, envVal)
 		if err != nil {
 			return err
 		}
-		delete(es, tag)
+		delete(es, envVar)
+	}
+
+	if len(missingValues) > 0 {
+		return fmt.Errorf("%w: %s", ErrRequiredValuesNotSet, strings.Join(missingValues, ","))
 	}
 
 	return nil
@@ -127,6 +148,29 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 	}
 
 	return nil
+}
+
+func parseTagSetting(tags reflect.StructTag) map[string]string {
+	setting := map[string]string{}
+	str := tags.Get("env")
+	if str == "" {
+		return setting
+	}
+	envTags := strings.Split(str, ";")
+	for i, value := range envTags {
+		v := strings.Split(value, ":")
+		k := strings.TrimSpace(strings.ToLower(v[0]))
+		if i == 0 && len(v) == 1 {
+			setting["name"] = strings.ToUpper(v[0])
+		}
+		value := strings.Join(v[1:], ":")
+		if k == "name" {
+			setting["name"] = strings.ToUpper(value)
+		} else {
+			setting[k] = value
+		}
+	}
+	return setting
 }
 
 // UnmarshalFromEnviron parses an EnvSet from os.Environ and stores the result
