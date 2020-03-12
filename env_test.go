@@ -49,6 +49,8 @@ type ValidStruct struct {
 	// Additional supported types
 	Int  int  `env:"INT"`
 	Bool bool `env:"BOOL"`
+
+	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
 }
 
 type UnsupportedStruct struct {
@@ -61,11 +63,13 @@ type UnexportedStruct struct {
 
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
-		"HOME":      "/home/test",
-		"WORKSPACE": "/mnt/builds/slave/workspace/test",
-		"EXTRA":     "extra",
-		"INT":       "1",
-		"BOOL":      "true",
+		"HOME":             "/home/test",
+		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
+		"EXTRA":            "extra",
+		"INT":              "1",
+		"BOOL":             "true",
+		"npm_config_cache": "first",
+		"NPM_CONFIG_CACHE": "second",
 	}
 
 	var validStruct ValidStruct
@@ -96,6 +100,10 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Bool != true {
 		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Bool)
+	}
+
+	if validStruct.MultipleTags != "first" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "first", validStruct.MultipleTags)
 	}
 
 	v, ok := environ["HOME"]
@@ -226,9 +234,10 @@ func TestMarshal(t *testing.T) {
 		}{
 			Workspace: "/mnt/builds/slave/workspace/test",
 		},
-		Extra: "extra",
-		Int:   1,
-		Bool:  true,
+		Extra:        "extra",
+		Int:          1,
+		Bool:         true,
+		MultipleTags: "foobar",
 	}
 
 	environ, err := Marshal(&validStruct)
@@ -254,6 +263,14 @@ func TestMarshal(t *testing.T) {
 
 	if environ["BOOL"] != "true" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "true", environ["BOOL"])
+	}
+
+	if environ["npm_config_cache"] != "foobar" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "foobar", environ["npm_config_cache"])
+	}
+
+	if environ["NPM_CONFIG_CACHE"] != "foobar" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "foobar", environ["NPM_CONFIG_CACHE"])
 	}
 }
 

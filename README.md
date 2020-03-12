@@ -27,6 +27,10 @@ type Environment struct {
 		Ci          bool    `env:"CI"`
 	}
 
+	Node struct {
+		ConfigCache *string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
+	}
+
 	Extras env.EnvSet
 }
 

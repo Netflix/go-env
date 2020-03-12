@@ -22,6 +22,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -84,12 +85,24 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			return ErrUnexportedField
 		}
 
-		envVar, ok := es[tag]
+		envKeys := strings.Split(tag, ",")
+
+		var (
+			envValue string
+			ok bool
+		)
+		for _, envKey := range envKeys {
+			envValue, ok = es[envKey]
+			if ok {
+				break
+			}
+		}
+
 		if !ok {
 			continue
 		}
 
-		err := set(typeField.Type, valueField, envVar)
+		err := set(typeField.Type, valueField, envValue)
 		if err != nil {
 			return err
 		}
@@ -194,13 +207,20 @@ func Marshal(v interface{}) (EnvSet, error) {
 			continue
 		}
 
+		envKeys := strings.Split(tag, ",")
+
+		var envValue string
 		if typeField.Type.Kind() == reflect.Ptr {
 			if valueField.IsNil() {
 				continue
 			}
-			es[tag] = fmt.Sprintf("%v", valueField.Elem().Interface())
+			envValue = fmt.Sprintf("%v", valueField.Elem().Interface())
 		} else {
-			es[tag] = fmt.Sprintf("%v", valueField.Interface())
+			envValue = fmt.Sprintf("%v", valueField.Interface())
+		}
+
+		for _, envKey := range envKeys {
+			es[envKey] = envValue
 		}
 	}
 
