@@ -116,7 +116,7 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetBool(v)
-	case reflect.Int:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		v, err := strconv.Atoi(value)
 		if err != nil {
 			return err
