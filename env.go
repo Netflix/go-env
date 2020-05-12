@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -130,6 +131,16 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 		}
 		f.SetBool(v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if t.PkgPath() == "time" && t.Name() == "Duration" {
+			duration, err := time.ParseDuration(value)
+			if err != nil {
+				return err
+			}
+
+			f.Set(reflect.ValueOf(duration))
+			break
+		}
+
 		v, err := strconv.Atoi(value)
 		if err != nil {
 			return err

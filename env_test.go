@@ -51,6 +51,9 @@ type ValidStruct struct {
 	Bool bool `env:"BOOL"`
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
+
+	// time.Duration is supported
+	Duration time.Duration `env:"TYPE_DURATION"`
 }
 
 type UnsupportedStruct struct {
@@ -70,6 +73,7 @@ func TestUnmarshal(t *testing.T) {
 		"BOOL":             "true",
 		"npm_config_cache": "first",
 		"NPM_CONFIG_CACHE": "second",
+		"TYPE_DURATION":    "5s",
 	}
 
 	var validStruct ValidStruct
@@ -104,6 +108,10 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.MultipleTags != "first" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "first", validStruct.MultipleTags)
+	}
+
+	if validStruct.Duration != 5*time.Second {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "5s", validStruct.Duration)
 	}
 
 	v, ok := environ["HOME"]
@@ -238,6 +246,7 @@ func TestMarshal(t *testing.T) {
 		Int:          1,
 		Bool:         true,
 		MultipleTags: "foobar",
+		Duration:     3 * time.Minute,
 	}
 
 	environ, err := Marshal(&validStruct)
@@ -271,6 +280,10 @@ func TestMarshal(t *testing.T) {
 
 	if environ["NPM_CONFIG_CACHE"] != "foobar" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "foobar", environ["NPM_CONFIG_CACHE"])
+	}
+
+	if environ["TYPE_DURATION"] != "3m0s" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "3m0s", environ["TYPE_DURATION"])
 	}
 }
 
