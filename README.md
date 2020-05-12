@@ -14,6 +14,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	env "github.com/Netflix/go-env"
 )
@@ -32,6 +33,8 @@ type Environment struct {
 	}
 
 	Extras env.EnvSet
+
+	Duration time.Duration `env:"TYPE_DURATION"`
 }
 
 func main() {
