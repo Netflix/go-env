@@ -64,6 +64,15 @@ type UnexportedStruct struct {
 	home string `env:"HOME"`
 }
 
+type DefaultValueStruct struct {
+	DefaultString             string        `env:"MISSING_STRING||found"`
+	DefaultBool               bool          `env:"MISSING_BOOL||true"`
+	DefaultInt                int           `env:"MISSING_INT||7"`
+	DefaultDuration           time.Duration `env:"MISSING_DURATION||5s"`
+	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2||present"`
+	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT||present"`
+}
+
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
 		"HOME":             "/home/test",
@@ -230,6 +239,30 @@ func TestUnmarshalUnexported(t *testing.T) {
 	err := Unmarshal(environ, &unexportedStruct)
 	if err != ErrUnexportedField {
 		t.Errorf("Expected error 'ErrUnexportedField' but got '%s'", err)
+	}
+}
+
+func TestUnmarshalDefaultValues(t *testing.T) {
+	environ := map[string]string {
+		"PRESENT": "youFoundMe",
+	}
+	var defaultValueStruct DefaultValueStruct
+	err := Unmarshal(environ, &defaultValueStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got %s", err)
+	}
+	testCases := [][]interface{}{
+		{defaultValueStruct.DefaultInt, 7},
+		{defaultValueStruct.DefaultBool, true},
+		{defaultValueStruct.DefaultString, "found"},
+		{defaultValueStruct.DefaultDuration, 5 * time.Second},
+		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
+		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
+	}
+	for _, testCase := range testCases {
+		if testCase[0] != testCase[1] {
+			t.Errorf("Expected field value to be '%v' but got '%v'", testCase[0], testCase[1])
+		}
 	}
 }
 

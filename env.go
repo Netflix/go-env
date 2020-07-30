@@ -86,7 +86,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			return ErrUnexportedField
 		}
 
-		envKeys := strings.Split(tag, ",")
+		envKeys, defaultVal := parseTag(tag)
 
 		var (
 			envValue string
@@ -99,7 +99,9 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			}
 		}
 
-		if !ok {
+		if !ok && defaultVal != "" {
+			envValue = defaultVal
+		} else if !ok {
 			continue
 		}
 
@@ -236,4 +238,13 @@ func Marshal(v interface{}) (EnvSet, error) {
 	}
 
 	return es, nil
+}
+
+func parseTag(tag string) ([]string, string) {
+	tagData := strings.Split(tag, "||")
+	envKeys := strings.Split(tagData[0], ",")
+	if len(tagData) > 1 {
+		return envKeys, tagData[1]
+	}
+	return envKeys, ""
 }
