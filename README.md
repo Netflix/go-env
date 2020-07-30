@@ -34,7 +34,8 @@ type Environment struct {
 
 	Extras env.EnvSet
 
-	Duration time.Duration `env:"TYPE_DURATION"`
+	Duration     time.Duration `env:"TYPE_DURATION"`
+	DefaultValue string        `env:"MISSING_VAR||default_value"`
 }
 
 func main() {
