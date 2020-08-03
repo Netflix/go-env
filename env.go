@@ -36,6 +36,9 @@ var (
 
 	// ErrUnexportedField returned when a field with tag "env" is not exported.
 	ErrUnexportedField = errors.New("field must be exported")
+
+	// ErrMissingRequiredValue returned when a field with required=true contains no value or default
+	ErrMissingRequiredValue = errors.New("value for this field is required")
 )
 
 // Unmarshal parses an EnvSet and stores the result in the value pointed to by
@@ -86,13 +89,13 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			return ErrUnexportedField
 		}
 
-		envKeys := strings.Split(tag, ",")
+		envTag := parseTag(tag)
 
 		var (
 			envValue string
 			ok bool
 		)
-		for _, envKey := range envKeys {
+		for _, envKey := range envTag.Keys {
 			envValue, ok = es[envKey]
 			if ok {
 				break
@@ -100,7 +103,13 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		}
 
 		if !ok {
-			continue
+			if envTag.Default != "" {
+				envValue = envTag.Default
+			} else if envTag.Required {
+				return ErrMissingRequiredValue
+			} else {
+				continue
+			}
 		}
 
 		err := set(typeField.Type, valueField, envValue)
@@ -236,4 +245,32 @@ func Marshal(v interface{}) (EnvSet, error) {
 	}
 
 	return es, nil
+}
+
+type tag struct {
+	Keys []string
+	Default string
+	Required bool
+}
+
+func parseTag(tagString string) tag {
+	var t tag
+	envKeys := strings.Split(tagString, ",")
+	for _, key := range envKeys {
+		if strings.Contains(key, "=") {
+			keyData := strings.Split(key, "=")
+			switch strings.ToLower(keyData[0]) {
+			case "default":
+				t.Default = keyData[1]
+			case "required":
+				t.Required = strings.ToLower(keyData[1]) == "true"
+			default:
+				// just ignoring unsupported keys
+				continue
+			}
+		} else {
+			t.Keys = append(t.Keys, key)
+		}
+	}
+	return t
 }

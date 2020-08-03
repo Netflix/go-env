@@ -64,6 +64,22 @@ type UnexportedStruct struct {
 	home string `env:"HOME"`
 }
 
+type DefaultValueStruct struct {
+	DefaultString             string        `env:"MISSING_STRING,default=found"`
+	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
+	DefaultInt                int           `env:"MISSING_INT,default=7"`
+	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
+	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2,default=present"`
+	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT,default=present"`
+}
+
+type RequiredValueStruct struct {
+	Required            string `env:"REQUIRED_VAL,required=true"`
+	RequiredWithDefault string `env:"REQUIRED_MISSING,default=myValue,required=true"`
+	NotRequired         string `env:"NOT_REQUIRED,required=false"`
+	InvalidExtra        string `env:"INVALID,invalid=invalid"`
+}
+
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
 		"HOME":             "/home/test",
@@ -230,6 +246,50 @@ func TestUnmarshalUnexported(t *testing.T) {
 	err := Unmarshal(environ, &unexportedStruct)
 	if err != ErrUnexportedField {
 		t.Errorf("Expected error 'ErrUnexportedField' but got '%s'", err)
+	}
+}
+
+func TestUnmarshalDefaultValues(t *testing.T) {
+	environ := map[string]string {
+		"PRESENT": "youFoundMe",
+	}
+	var defaultValueStruct DefaultValueStruct
+	err := Unmarshal(environ, &defaultValueStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got %s", err)
+	}
+	testCases := [][]interface{}{
+		{defaultValueStruct.DefaultInt, 7},
+		{defaultValueStruct.DefaultBool, true},
+		{defaultValueStruct.DefaultString, "found"},
+		{defaultValueStruct.DefaultDuration, 5 * time.Second},
+		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
+		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
+	}
+	for _, testCase := range testCases {
+		if testCase[0] != testCase[1] {
+			t.Errorf("Expected field value to be '%v' but got '%v'", testCase[1], testCase[0])
+		}
+	}
+}
+
+func TestUnmarshalRequiredValues(t *testing.T) {
+	environ := map[string]string{}
+	var requiredValuesStruct RequiredValueStruct
+	err := Unmarshal(environ, &requiredValuesStruct)
+	if err != ErrMissingRequiredValue {
+		t.Errorf("Expected error 'ErrMissingRequiredValue' but go '%s'", err)
+	}
+	environ["REQUIRED_VAL"] = "required"
+	err = Unmarshal(environ, &requiredValuesStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+	if requiredValuesStruct.Required != "required" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "required", requiredValuesStruct.Required)
+	}
+	if requiredValuesStruct.RequiredWithDefault != "myValue" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "myValue", requiredValuesStruct.RequiredWithDefault)
 	}
 }
 
