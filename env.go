@@ -258,7 +258,7 @@ func parseTag(tagString string) tag {
 	envKeys := strings.Split(tagString, ",")
 	for _, key := range envKeys {
 		if strings.Contains(key, "=") {
-			keyData := strings.Split(key, "=")
+			keyData := strings.SplitN(key, "=", 2)
 			switch strings.ToLower(keyData[0]) {
 			case "default":
 				t.Default = keyData[1]

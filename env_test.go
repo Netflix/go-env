@@ -66,6 +66,7 @@ type UnexportedStruct struct {
 
 type DefaultValueStruct struct {
 	DefaultString             string        `env:"MISSING_STRING,default=found"`
+	DefaultKeyValueString     string        `env:"MISSING_KVSTRING,default=key=value"`
 	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
 	DefaultInt                int           `env:"MISSING_INT,default=7"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
@@ -262,6 +263,7 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 		{defaultValueStruct.DefaultInt, 7},
 		{defaultValueStruct.DefaultBool, true},
 		{defaultValueStruct.DefaultString, "found"},
+		{defaultValueStruct.DefaultKeyValueString, "key=value"},
 		{defaultValueStruct.DefaultDuration, 5 * time.Second},
 		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
 		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
