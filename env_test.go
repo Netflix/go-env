@@ -81,6 +81,12 @@ type RequiredValueStruct struct {
 	InvalidExtra        string `env:"INVALID,invalid=invalid"`
 }
 
+type ErrorNameStruct struct {
+	Required         string `env:"REQUIRED_VAL,required=true"`
+	RequiredWithName string `env:"REQUIRED_MISSING,required=true,error=NAME"`
+	NotRequired      string `env:"NOT_REQUIRED,required=false,error=NAME"`
+}
+
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
 		"HOME":             "/home/test",
@@ -251,7 +257,7 @@ func TestUnmarshalUnexported(t *testing.T) {
 }
 
 func TestUnmarshalDefaultValues(t *testing.T) {
-	environ := map[string]string {
+	environ := map[string]string{
 		"PRESENT": "youFoundMe",
 	}
 	var defaultValueStruct DefaultValueStruct
@@ -279,7 +285,7 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 	environ := map[string]string{}
 	var requiredValuesStruct RequiredValueStruct
 	err := Unmarshal(environ, &requiredValuesStruct)
-	if err != ErrMissingRequiredValue {
+	if !IsErrMissingRequiredValue(err) {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but go '%s'", err)
 	}
 	environ["REQUIRED_VAL"] = "required"
@@ -292,6 +298,22 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 	}
 	if requiredValuesStruct.RequiredWithDefault != "myValue" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "myValue", requiredValuesStruct.RequiredWithDefault)
+	}
+}
+
+func TestUnmarshalRequiredErrorName(t *testing.T) {
+	var err error
+	environ := map[string]string{}
+	var errorNameStruct ErrorNameStruct
+	err = Unmarshal(environ, &errorNameStruct)
+	if err.Error() != "value for 'REQUIRED_VAL' is required" {
+		t.Errorf("Expected response \"value for 'REQUIRED_VAL' is required\" but go '%s'", err)
+	}
+
+	environ["REQUIRED_VAL"] = "required"
+	err = Unmarshal(environ, &errorNameStruct)
+	if err.Error() != "value for 'NAME' is required" {
+		t.Errorf("Expected response \"value for 'NAME' is required\" but go '%s'", err)
 	}
 }
 
