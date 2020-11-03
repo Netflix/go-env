@@ -36,10 +36,21 @@ var (
 
 	// ErrUnexportedField returned when a field with tag "env" is not exported.
 	ErrUnexportedField = errors.New("field must be exported")
-
-	// ErrMissingRequiredValue returned when a field with required=true contains no value or default
-	ErrMissingRequiredValue = errors.New("value for this field is required")
 )
+
+// ErrMissingRequiredValue returned when a field with required=true contains no value or default
+type ErrMissingRequiredValue struct {
+	VariableName string
+}
+
+func (e ErrMissingRequiredValue) Error() string {
+	return fmt.Sprintf("value for '%s' is required", e.VariableName)
+}
+
+func IsErrMissingRequiredValue(err error) bool {
+	_, ok := err.(ErrMissingRequiredValue)
+	return ok
+}
 
 // Unmarshal parses an EnvSet and stores the result in the value pointed to by
 // v. Fields that are matched in v will be deleted from EnvSet, resulting in
@@ -93,20 +104,26 @@ func Unmarshal(es EnvSet, v interface{}) error {
 
 		var (
 			envValue string
-			ok bool
+			ok       bool
+			lastKey  string
 		)
 		for _, envKey := range envTag.Keys {
 			envValue, ok = es[envKey]
 			if ok {
 				break
 			}
+			lastKey = envKey
 		}
 
 		if !ok {
 			if envTag.Default != "" {
 				envValue = envTag.Default
 			} else if envTag.Required {
-				return ErrMissingRequiredValue
+				if envTag.ErrorName != "" {
+					return ErrMissingRequiredValue{envTag.ErrorName}
+				} else {
+					return ErrMissingRequiredValue{lastKey}
+				}
 			} else {
 				continue
 			}
@@ -248,9 +265,10 @@ func Marshal(v interface{}) (EnvSet, error) {
 }
 
 type tag struct {
-	Keys []string
-	Default string
-	Required bool
+	Keys      []string
+	Default   string
+	Required  bool
+	ErrorName string
 }
 
 func parseTag(tagString string) tag {
@@ -264,6 +282,8 @@ func parseTag(tagString string) tag {
 				t.Default = keyData[1]
 			case "required":
 				t.Required = strings.ToLower(keyData[1]) == "true"
+			case "error":
+				t.ErrorName = keyData[1]
 			default:
 				// just ignoring unsupported keys
 				continue
