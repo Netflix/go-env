@@ -1,6 +1,6 @@
 # go-env
 
-[![Build Status](https://travis-ci.org/Netflix/go-env.svg?branch=master)](https://travis-ci.org/Netflix/go-env)
+[![Build Status](https://travis-ci.com/Netflix/go-env.svg?branch=master)](https://travis-ci.com/Netflix/go-env)
 [![GoDoc](https://godoc.org/github.com/Netflix/go-env?status.svg)](https://godoc.org/github.com/Netflix/go-env)
 [![NetflixOSS Lifecycle](https://img.shields.io/osslifecycle/Netflix/go-expect.svg)]()
 
