@@ -14,6 +14,8 @@
 package env
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -54,6 +56,11 @@ type ValidStruct struct {
 
 	// time.Duration is supported
 	Duration time.Duration `env:"TYPE_DURATION"`
+
+	// Custom unmarshaler should support scalar types
+	Base64EncodedString *Base64EncodedString `env:"BASE64_ENCODED_STRING"`
+	// Custom unmarshaler should support struct types
+	JSONData *JSONData `env:"JSON_DATA"`
 }
 
 type UnsupportedStruct struct {
@@ -79,6 +86,31 @@ type RequiredValueStruct struct {
 	RequiredWithDefault string `env:"REQUIRED_MISSING,default=myValue,required=true"`
 	NotRequired         string `env:"NOT_REQUIRED,required=false"`
 	InvalidExtra        string `env:"INVALID,invalid=invalid"`
+}
+
+type Base64EncodedString string
+
+func (b *Base64EncodedString) UnmarshalEnvironmentValue(data string) error {
+	value, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return err
+	}
+	*b = Base64EncodedString(value)
+	return nil
+}
+
+type JSONData struct {
+	SomeField int `json:"someField"`
+}
+
+func (j *JSONData) UnmarshalEnvironmentValue(data string) error {
+	var tmp JSONData
+	err := json.Unmarshal([]byte(data), &tmp)
+	if err != nil {
+		return err
+	}
+	*j = tmp
+	return nil
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -184,6 +216,32 @@ func TestUnmarshalPointer(t *testing.T) {
 	}
 }
 
+func TestCustomUnmarshal(t *testing.T) {
+	someValue := "some value"
+	environ := map[string]string{
+		"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
+		"JSON_DATA":             `{ "someField": 42 }`,
+	}
+
+	var validStruct ValidStruct
+	err := Unmarshal(environ, &validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if validStruct.Base64EncodedString == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
+	} else if *validStruct.Base64EncodedString != Base64EncodedString(someValue) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", someValue, string(*validStruct.Base64EncodedString))
+	}
+
+	if validStruct.JSONData == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
+	} else if validStruct.JSONData.SomeField != 42 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 42, validStruct.JSONData.SomeField)
+	}
+}
+
 func TestUnmarshalInvalid(t *testing.T) {
 	environ := make(map[string]string)
 
@@ -251,7 +309,7 @@ func TestUnmarshalUnexported(t *testing.T) {
 }
 
 func TestUnmarshalDefaultValues(t *testing.T) {
-	environ := map[string]string {
+	environ := map[string]string{
 		"PRESENT": "youFoundMe",
 	}
 	var defaultValueStruct DefaultValueStruct

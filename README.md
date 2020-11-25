@@ -72,3 +72,50 @@ func main() {
 	environment.Extras = es
 }
 ```
+
+## Custom Unmarshaler
+
+There is limited support for dictating how a field should be unmarshaled. The following example
+shows how you could unmarshal from JSON
+
+```go
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	
+    env "github.com/Netflix/go-env"
+)
+
+type SomeData struct {
+    SomeField int `json:"someField"`
+}
+
+func (s *SomeData) UnmarshalEnvironmentValue(data string) error {
+    var tmp SomeData
+    err := json.Unmarshal([]byte(data), &tmp)
+	if err != nil {
+		return err
+	}
+	*s = tmp 
+	return nil
+}
+
+type Config struct {
+    SomeData *SomeData `env:"SOME_DATA"`
+}
+
+func main() {
+	var cfg Config 
+	_, err := env.UnmarshalFromEnviron(&cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+    if cfg.SomeData != nil && cfg.SomeData.SomeField == 42 {
+        fmt.Println("Got 42!")
+    } else {
+        fmt.Printf("Got nil or some other value: %v\n", cfg.SomeData)
+    }
+}
+```
