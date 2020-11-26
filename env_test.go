@@ -99,6 +99,10 @@ func (b *Base64EncodedString) UnmarshalEnvironmentValue(data string) error {
 	return nil
 }
 
+func (b Base64EncodedString) MarshalEnvironmentValue() (string, error) {
+	return base64.StdEncoding.EncodeToString([]byte(b)), nil
+}
+
 type JSONData struct {
 	SomeField int `json:"someField"`
 }
@@ -111,6 +115,14 @@ func (j *JSONData) UnmarshalEnvironmentValue(data string) error {
 	}
 	*j = tmp
 	return nil
+}
+
+func (j JSONData) MarshalEnvironmentValue() (string, error) {
+	bytes, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -447,4 +459,33 @@ func TestMarshalPointer(t *testing.T) {
 	if ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "JENKINS_POINTER_MISSING", v)
 	}
+}
+
+func TestMarshalCustom(t *testing.T) {
+	someValue := Base64EncodedString("someValue")
+	validStruct := ValidStruct{
+		Base64EncodedString: &someValue,
+		JSONData: &JSONData{
+			SomeField: 42,
+		},
+	}
+	es, err := Marshal(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	v, ok := es["BASE64_ENCODED_STRING"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "BASE64_ENCODED_STRING")
+	} else if v != base64.StdEncoding.EncodeToString([]byte(someValue)) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", base64.StdEncoding.EncodeToString([]byte(someValue)), v)
+	}
+
+	v, ok = es["JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "JSON_DATA", v)
+	} else if v != `{"someField":42}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":42}`, v)
+	}
+
 }

@@ -262,14 +262,25 @@ func Marshal(v interface{}) (EnvSet, error) {
 
 		envKeys := strings.Split(tag, ",")
 
-		var envValue string
+		var el interface{}
 		if typeField.Type.Kind() == reflect.Ptr {
 			if valueField.IsNil() {
 				continue
 			}
-			envValue = fmt.Sprintf("%v", valueField.Elem().Interface())
+			el = valueField.Elem().Interface()
 		} else {
-			envValue = fmt.Sprintf("%v", valueField.Interface())
+			el = valueField.Interface()
+		}
+
+		var err error
+		var envValue string
+		if m, ok := el.(Marshaler); ok {
+			envValue, err = m.MarshalEnvironmentValue()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			envValue = fmt.Sprintf("%v", el)
 		}
 
 		for _, envKey := range envKeys {

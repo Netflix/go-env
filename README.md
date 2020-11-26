@@ -73,10 +73,10 @@ func main() {
 }
 ```
 
-## Custom Unmarshaler
+## Custom Marshaler/Unmarshaler
 
-There is limited support for dictating how a field should be unmarshaled. The following example
-shows how you could unmarshal from JSON
+There is limited support for dictating how a field should be marshaled or unmarshaled. The following example
+shows how you could marshal/unmarshal from JSON
 
 ```go
 import (
@@ -101,6 +101,14 @@ func (s *SomeData) UnmarshalEnvironmentValue(data string) error {
 	return nil
 }
 
+func (s SomeData) MarshalEnvironmentValue() (string, error) {
+	bytes, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
 type Config struct {
     SomeData *SomeData `env:"SOME_DATA"`
 }
@@ -117,5 +125,11 @@ func main() {
     } else {
         fmt.Printf("Got nil or some other value: %v\n", cfg.SomeData)
     }
+
+    es, err = env.Marshal(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+    fmt.Printf("Got the following: %+v\n", es)
 }
 ```
