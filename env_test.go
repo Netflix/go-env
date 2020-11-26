@@ -58,9 +58,11 @@ type ValidStruct struct {
 	Duration time.Duration `env:"TYPE_DURATION"`
 
 	// Custom unmarshaler should support scalar types
-	Base64EncodedString *Base64EncodedString `env:"BASE64_ENCODED_STRING"`
+	Base64EncodedString Base64EncodedString `env:"BASE64_ENCODED_STRING"`
 	// Custom unmarshaler should support struct types
-	JSONData *JSONData `env:"JSON_DATA"`
+	JSONData JSONData `env:"JSON_DATA"`
+	// Custom unmarshaler should support pointer types as well
+	PointerJSONData *JSONData `env:"POINTER_JSON_DATA"`
 }
 
 type UnsupportedStruct struct {
@@ -233,6 +235,7 @@ func TestCustomUnmarshal(t *testing.T) {
 	environ := map[string]string{
 		"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
 		"JSON_DATA":             `{ "someField": 42 }`,
+		"POINTER_JSON_DATA":     `{ "someField": 43 }`,
 	}
 
 	var validStruct ValidStruct
@@ -241,15 +244,17 @@ func TestCustomUnmarshal(t *testing.T) {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
-	if validStruct.Base64EncodedString == nil {
-		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
-	} else if *validStruct.Base64EncodedString != Base64EncodedString(someValue) {
-		t.Errorf("Expected field value to be '%s' but got '%s'", someValue, string(*validStruct.Base64EncodedString))
+	if validStruct.Base64EncodedString != Base64EncodedString(someValue) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", someValue, string(validStruct.Base64EncodedString))
 	}
 
-	if validStruct.JSONData == nil {
+	if validStruct.PointerJSONData == nil {
 		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
-	} else if validStruct.JSONData.SomeField != 42 {
+	} else if validStruct.PointerJSONData.SomeField != 43 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 43, validStruct.PointerJSONData.SomeField)
+	}
+
+	if validStruct.JSONData.SomeField != 42 {
 		t.Errorf("Expected field value to be '%d' but got '%d'", 42, validStruct.JSONData.SomeField)
 	}
 }
@@ -464,9 +469,12 @@ func TestMarshalPointer(t *testing.T) {
 func TestMarshalCustom(t *testing.T) {
 	someValue := Base64EncodedString("someValue")
 	validStruct := ValidStruct{
-		Base64EncodedString: &someValue,
-		JSONData: &JSONData{
+		Base64EncodedString: someValue,
+		JSONData: JSONData{
 			SomeField: 42,
+		},
+		PointerJSONData: &JSONData{
+			SomeField: 43,
 		},
 	}
 	es, err := Marshal(&validStruct)
@@ -486,6 +494,13 @@ func TestMarshalCustom(t *testing.T) {
 		t.Errorf("Expected field '%s' to exist but got '%s'", "JSON_DATA", v)
 	} else if v != `{"someField":42}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":42}`, v)
+	}
+
+	v, ok = es["POINTER_JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
+	} else if v != `{"someField":43}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
 	}
 
 }
