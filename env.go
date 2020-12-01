@@ -212,6 +212,22 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetUint(v)
+	case reflect.Slice:
+		values := strings.Split(value, ",")
+		switch t.Elem().Kind() {
+		case reflect.String:
+			// already []string, just set directly
+			f.Set(reflect.ValueOf(values))
+		default:
+			dest := reflect.MakeSlice(reflect.SliceOf(t.Elem()), len(values), len(values))
+			for i, v := range values {
+				err := set(t.Elem(), dest.Index(i), v)
+				if err != nil {
+					return err
+				}
+			}
+			f.Set(dest)
+		}
 	default:
 		return ErrUnsupportedType
 	}
@@ -331,7 +347,8 @@ func parseTag(tagString string) tag {
 			case "default":
 				t.Default = keyData[1]
 			case "required":
-				t.Required = strings.ToLower(keyData[1]) == "true"
+				// ignoring the error and assume invalid input is false
+				t.Required, _ = strconv.ParseBool(keyData[1])
 			default:
 				// just ignoring unsupported keys
 				continue
