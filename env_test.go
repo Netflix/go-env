@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -88,6 +89,7 @@ type DefaultValueStruct struct {
 	DefaultFloat32            float32       `env:"MISSING_FLOAT32,default=8.9"`
 	DefaultFloat64            float64       `env:"MISSING_FLOAT64,default=10.11"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
+	DefaultStringSlice        []string      `env:"MISSING_STRING_SLICE,default=separate,values"`
 	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2,default=present"`
 	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT,default=present"`
 }
@@ -135,6 +137,14 @@ func (j JSONData) MarshalEnvironmentValue() (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+type IterValuesStruct struct {
+	StringSlice   []string        `env:"STRING"`
+	IntSlice      []int           `env:"INT"`
+	Int64Slice    []int64         `env:"INT64"`
+	DurationSlice []time.Duration `env:"DURATION"`
+	BoolSlice     []bool          `env:"BOOL"`
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -357,6 +367,33 @@ func TestUnmarshalUnexported(t *testing.T) {
 	}
 }
 
+func TestUnmarshalSlice(t *testing.T) {
+	environ := map[string]string{
+		"STRING":   "separate,values",
+		"INT":      "1,2",
+		"INT64":    "3,4",
+		"DURATION": "60s,70h",
+		"BOOL":     "true,false",
+	}
+	var iterValStruct IterValuesStruct
+	err := Unmarshal(environ, &iterValStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got %v", err)
+	}
+	testCases := [][]interface{}{
+		{iterValStruct.StringSlice, []string{"separate", "values"}},
+		{iterValStruct.IntSlice, []int{1, 2}},
+		{iterValStruct.Int64Slice, []int64{3, 4}},
+		{iterValStruct.DurationSlice, []time.Duration{time.Second * 60, time.Hour * 70}},
+		{iterValStruct.BoolSlice, []bool{true, false}},
+	}
+	for _, testCase := range testCases {
+		if !reflect.DeepEqual(testCase[0], testCase[1]) {
+			t.Errorf("Expected field value to be '%v' but got '%v'", testCase[1], testCase[0])
+		}
+	}
+}
+
 func TestUnmarshalDefaultValues(t *testing.T) {
 	environ := map[string]string{
 		"PRESENT": "youFoundMe",
@@ -375,11 +412,12 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 		{defaultValueStruct.DefaultString, "found"},
 		{defaultValueStruct.DefaultKeyValueString, "key=value"},
 		{defaultValueStruct.DefaultDuration, 5 * time.Second},
+		{defaultValueStruct.DefaultStringSlice, []string{"separate", "values"}},
 		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
 		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
 	}
 	for _, testCase := range testCases {
-		if testCase[0] != testCase[1] {
+		if !reflect.DeepEqual(testCase[0], testCase[1]) {
 			t.Errorf("Expected field value to be '%v' but got '%v'", testCase[1], testCase[0])
 		}
 	}
@@ -563,5 +601,4 @@ func TestMarshalCustom(t *testing.T) {
 	} else if v != `{"someField":43}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
 	}
-
 }
