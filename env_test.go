@@ -146,6 +146,7 @@ type IterValuesStruct struct {
 	Int64Slice    []int64         `env:"INT64"`
 	DurationSlice []time.Duration `env:"DURATION"`
 	BoolSlice     []bool          `env:"BOOL"`
+	KVStringSlice []string        `env:"KV"`
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -375,6 +376,7 @@ func TestUnmarshalSlice(t *testing.T) {
 		"INT64":    "3,4",
 		"DURATION": "60s,70h",
 		"BOOL":     "true,false",
+		"KV":       "k1=v1,k2=v2",
 	}
 	var iterValStruct IterValuesStruct
 	err := Unmarshal(environ, &iterValStruct)
@@ -387,6 +389,7 @@ func TestUnmarshalSlice(t *testing.T) {
 		{iterValStruct.Int64Slice, []int64{3, 4}},
 		{iterValStruct.DurationSlice, []time.Duration{time.Second * 60, time.Hour * 70}},
 		{iterValStruct.BoolSlice, []bool{true, false}},
+		{iterValStruct.KVStringSlice, []string{"k1=v1", "k2=v2"}},
 	}
 	for _, testCase := range testCases {
 		if !reflect.DeepEqual(testCase[0], testCase[1]) {
