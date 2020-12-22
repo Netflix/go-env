@@ -71,7 +71,7 @@ type DefaultValueStruct struct {
 	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
 	DefaultInt                int           `env:"MISSING_INT,default=7"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
-	DefaultStringSlice        []string      `env:"MISSING_STRING_SLICE,default=separate,values"`
+	DefaultStringSlice        []string      `env:"MISSING_STRING_SLICE,default=separate"`
 	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2,default=present"`
 	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT,default=present"`
 }
@@ -302,7 +302,7 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 		{defaultValueStruct.DefaultString, "found"},
 		{defaultValueStruct.DefaultKeyValueString, "key=value"},
 		{defaultValueStruct.DefaultDuration, 5 * time.Second},
-		{defaultValueStruct.DefaultStringSlice, []string{"separate", "values"}},
+		{defaultValueStruct.DefaultStringSlice, []string{"separate"}},
 		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
 		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
 	}
