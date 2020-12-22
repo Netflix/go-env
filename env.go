@@ -338,22 +338,30 @@ type tag struct {
 }
 
 func parseTag(tagString string) tag {
-	var t tag
+	var (
+		t           tag
+		seenDefault bool
+	)
 	envKeys := strings.Split(tagString, ",")
 	for _, key := range envKeys {
-		if strings.Contains(key, "=") {
+		switch {
+		case strings.Contains(key, "="):
 			keyData := strings.SplitN(key, "=", 2)
 			switch strings.ToLower(keyData[0]) {
 			case "default":
 				t.Default = keyData[1]
+				seenDefault = true
 			case "required":
 				// ignoring the error and assume invalid input is false
 				t.Required, _ = strconv.ParseBool(keyData[1])
 			default:
-				// just ignoring unsupported keys
-				continue
+				if seenDefault {
+					t.Default = fmt.Sprintf("%s,%s", t.Default, key)
+				}
 			}
-		} else {
+		case seenDefault:
+			t.Default = fmt.Sprintf("%s,%s", t.Default, key)
+		default:
 			t.Keys = append(t.Keys, key)
 		}
 	}
