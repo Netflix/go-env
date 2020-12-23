@@ -93,7 +93,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 
 		var (
 			envValue string
-			ok bool
+			ok       bool
 		)
 		for _, envKey := range envTag.Keys {
 			envValue, ok = es[envKey]
@@ -139,6 +139,18 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetBool(v)
+	case reflect.Float32:
+		v, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return err
+		}
+		f.SetFloat(v)
+	case reflect.Float64:
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return err
+		}
+		f.SetFloat(v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if t.PkgPath() == "time" && t.Name() == "Duration" {
 			duration, err := time.ParseDuration(value)
@@ -248,8 +260,8 @@ func Marshal(v interface{}) (EnvSet, error) {
 }
 
 type tag struct {
-	Keys []string
-	Default string
+	Keys     []string
+	Default  string
 	Required bool
 }
 
