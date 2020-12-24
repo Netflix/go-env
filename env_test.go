@@ -47,8 +47,10 @@ type ValidStruct struct {
 	Extra string
 
 	// Additional supported types
-	Int  int  `env:"INT"`
-	Bool bool `env:"BOOL"`
+	Int     int     `env:"INT"`
+	Float32 float32 `env:"FLOAT32"`
+	Float64 float64 `env:"FLOAT64"`
+	Bool    bool    `env:"BOOL"`
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
 
@@ -69,6 +71,8 @@ type DefaultValueStruct struct {
 	DefaultKeyValueString     string        `env:"MISSING_KVSTRING,default=key=value"`
 	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
 	DefaultInt                int           `env:"MISSING_INT,default=7"`
+	DefaultFloat32            float32       `env:"MISSING_FLOAT32,default=8.9"`
+	DefaultFloat64            float64       `env:"MISSING_FLOAT64,default=10.11"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
 	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2,default=present"`
 	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT,default=present"`
@@ -87,6 +91,8 @@ func TestUnmarshal(t *testing.T) {
 		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
 		"EXTRA":            "extra",
 		"INT":              "1",
+		"FLOAT32":          "2.3",
+		"FLOAT64":          "4.5",
 		"BOOL":             "true",
 		"npm_config_cache": "first",
 		"NPM_CONFIG_CACHE": "second",
@@ -117,6 +123,14 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Int != 1 {
 		t.Errorf("Expected field value to be '%d' but got '%d'", 1, validStruct.Int)
+	}
+
+	if validStruct.Float32 != 2.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 2.3, validStruct.Float32)
+	}
+
+	if validStruct.Float64 != 4.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 4.5, validStruct.Float64)
 	}
 
 	if validStruct.Bool != true {
@@ -251,7 +265,7 @@ func TestUnmarshalUnexported(t *testing.T) {
 }
 
 func TestUnmarshalDefaultValues(t *testing.T) {
-	environ := map[string]string {
+	environ := map[string]string{
 		"PRESENT": "youFoundMe",
 	}
 	var defaultValueStruct DefaultValueStruct
@@ -261,6 +275,8 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 	}
 	testCases := [][]interface{}{
 		{defaultValueStruct.DefaultInt, 7},
+		{defaultValueStruct.DefaultFloat32, float32(8.9)},
+		{defaultValueStruct.DefaultFloat64, 10.11},
 		{defaultValueStruct.DefaultBool, true},
 		{defaultValueStruct.DefaultString, "found"},
 		{defaultValueStruct.DefaultKeyValueString, "key=value"},
@@ -306,6 +322,8 @@ func TestMarshal(t *testing.T) {
 		},
 		Extra:        "extra",
 		Int:          1,
+		Float32:      float32(2.3),
+		Float64:      4.5,
 		Bool:         true,
 		MultipleTags: "foobar",
 		Duration:     3 * time.Minute,
@@ -330,6 +348,14 @@ func TestMarshal(t *testing.T) {
 
 	if environ["INT"] != "1" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["INT"])
+	}
+
+	if environ["FLOAT32"] != "2.3" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2.3", environ["FLOAT32"])
+	}
+
+	if environ["FLOAT64"] != "4.5" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "4.5", environ["FLOAT64"])
 	}
 
 	if environ["BOOL"] != "true" {
