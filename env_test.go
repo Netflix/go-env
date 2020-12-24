@@ -14,6 +14,8 @@
 package env
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -56,6 +58,13 @@ type ValidStruct struct {
 
 	// time.Duration is supported
 	Duration time.Duration `env:"TYPE_DURATION"`
+
+	// Custom unmarshaler should support scalar types
+	Base64EncodedString Base64EncodedString `env:"BASE64_ENCODED_STRING"`
+	// Custom unmarshaler should support struct types
+	JSONData JSONData `env:"JSON_DATA"`
+	// Custom unmarshaler should support pointer types as well
+	PointerJSONData *JSONData `env:"POINTER_JSON_DATA"`
 }
 
 type UnsupportedStruct struct {
@@ -83,6 +92,43 @@ type RequiredValueStruct struct {
 	RequiredWithDefault string `env:"REQUIRED_MISSING,default=myValue,required=true"`
 	NotRequired         string `env:"NOT_REQUIRED,required=false"`
 	InvalidExtra        string `env:"INVALID,invalid=invalid"`
+}
+
+type Base64EncodedString string
+
+func (b *Base64EncodedString) UnmarshalEnvironmentValue(data string) error {
+	value, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return err
+	}
+	*b = Base64EncodedString(value)
+	return nil
+}
+
+func (b Base64EncodedString) MarshalEnvironmentValue() (string, error) {
+	return base64.StdEncoding.EncodeToString([]byte(b)), nil
+}
+
+type JSONData struct {
+	SomeField int `json:"someField"`
+}
+
+func (j *JSONData) UnmarshalEnvironmentValue(data string) error {
+	var tmp JSONData
+	err := json.Unmarshal([]byte(data), &tmp)
+	if err != nil {
+		return err
+	}
+	*j = tmp
+	return nil
+}
+
+func (j JSONData) MarshalEnvironmentValue() (string, error) {
+	bytes, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -195,6 +241,35 @@ func TestUnmarshalPointer(t *testing.T) {
 
 	if validStruct.PointerMissing != nil {
 		t.Errorf("Expected field value to be '%v' but got '%s'", nil, *validStruct.PointerMissing)
+	}
+}
+
+func TestCustomUnmarshal(t *testing.T) {
+	someValue := "some value"
+	environ := map[string]string{
+		"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
+		"JSON_DATA":             `{ "someField": 42 }`,
+		"POINTER_JSON_DATA":     `{ "someField": 43 }`,
+	}
+
+	var validStruct ValidStruct
+	err := Unmarshal(environ, &validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if validStruct.Base64EncodedString != Base64EncodedString(someValue) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", someValue, string(validStruct.Base64EncodedString))
+	}
+
+	if validStruct.PointerJSONData == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
+	} else if validStruct.PointerJSONData.SomeField != 43 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 43, validStruct.PointerJSONData.SomeField)
+	}
+
+	if validStruct.JSONData.SomeField != 42 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 42, validStruct.JSONData.SomeField)
 	}
 }
 
@@ -415,4 +490,43 @@ func TestMarshalPointer(t *testing.T) {
 	if ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "JENKINS_POINTER_MISSING", v)
 	}
+}
+
+func TestMarshalCustom(t *testing.T) {
+	someValue := Base64EncodedString("someValue")
+	validStruct := ValidStruct{
+		Base64EncodedString: someValue,
+		JSONData: JSONData{
+			SomeField: 42,
+		},
+		PointerJSONData: &JSONData{
+			SomeField: 43,
+		},
+	}
+	es, err := Marshal(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	v, ok := es["BASE64_ENCODED_STRING"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "BASE64_ENCODED_STRING")
+	} else if v != base64.StdEncoding.EncodeToString([]byte(someValue)) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", base64.StdEncoding.EncodeToString([]byte(someValue)), v)
+	}
+
+	v, ok = es["JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "JSON_DATA", v)
+	} else if v != `{"someField":42}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":42}`, v)
+	}
+
+	v, ok = es["POINTER_JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
+	} else if v != `{"someField":43}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
+	}
+
 }

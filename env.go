@@ -39,6 +39,8 @@ var (
 
 	// ErrMissingRequiredValue returned when a field with required=true contains no value or default
 	ErrMissingRequiredValue = errors.New("value for this field is required")
+
+	unmarshalType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 )
 
 // Unmarshal parses an EnvSet and stores the result in the value pointed to by
@@ -123,6 +125,37 @@ func Unmarshal(es EnvSet, v interface{}) error {
 }
 
 func set(t reflect.Type, f reflect.Value, value string) error {
+	// See if the type implements Unmarshaler and use that first,
+	// otherwise, fallback to the previous logic
+	var isUnmarshaler bool
+	isPtr := t.Kind() == reflect.Ptr
+	if isPtr {
+		isUnmarshaler = t.Implements(unmarshalType) && f.CanInterface()
+	} else if f.CanAddr() {
+		isUnmarshaler = f.Addr().Type().Implements(unmarshalType) && f.Addr().CanInterface()
+	}
+
+	if isUnmarshaler {
+		var ptr reflect.Value
+		if isPtr {
+			// In the pointer case, we need to create a new element to have an
+			// address to point to
+			ptr = reflect.New(t.Elem())
+		} else {
+			// And for scalars, we need the pointer to be able to modify the value
+			ptr = f.Addr()
+		}
+		if u, ok := ptr.Interface().(Unmarshaler); ok {
+			if err := u.UnmarshalEnvironmentValue(value); err != nil {
+				return err
+			}
+			if isPtr {
+				f.Set(ptr)
+			}
+			return nil
+		}
+	}
+
 	switch t.Kind() {
 	case reflect.Ptr:
 		ptr := reflect.New(t.Elem())
@@ -241,14 +274,25 @@ func Marshal(v interface{}) (EnvSet, error) {
 
 		envKeys := strings.Split(tag, ",")
 
-		var envValue string
+		var el interface{}
 		if typeField.Type.Kind() == reflect.Ptr {
 			if valueField.IsNil() {
 				continue
 			}
-			envValue = fmt.Sprintf("%v", valueField.Elem().Interface())
+			el = valueField.Elem().Interface()
 		} else {
-			envValue = fmt.Sprintf("%v", valueField.Interface())
+			el = valueField.Interface()
+		}
+
+		var err error
+		var envValue string
+		if m, ok := el.(Marshaler); ok {
+			envValue, err = m.MarshalEnvironmentValue()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			envValue = fmt.Sprintf("%v", el)
 		}
 
 		for _, envKey := range envKeys {
