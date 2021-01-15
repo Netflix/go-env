@@ -14,6 +14,8 @@
 package env
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"reflect"
 	"testing"
@@ -48,13 +50,22 @@ type ValidStruct struct {
 	Extra string
 
 	// Additional supported types
-	Int  int  `env:"INT"`
-	Bool bool `env:"BOOL"`
+	Int     int     `env:"INT"`
+	Float32 float32 `env:"FLOAT32"`
+	Float64 float64 `env:"FLOAT64"`
+	Bool    bool    `env:"BOOL"`
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
 
 	// time.Duration is supported
 	Duration time.Duration `env:"TYPE_DURATION"`
+
+	// Custom unmarshaler should support scalar types
+	Base64EncodedString Base64EncodedString `env:"BASE64_ENCODED_STRING"`
+	// Custom unmarshaler should support struct types
+	JSONData JSONData `env:"JSON_DATA"`
+	// Custom unmarshaler should support pointer types as well
+	PointerJSONData *JSONData `env:"POINTER_JSON_DATA"`
 }
 
 type UnsupportedStruct struct {
@@ -70,6 +81,8 @@ type DefaultValueStruct struct {
 	DefaultKeyValueString     string        `env:"MISSING_KVSTRING,default=key=value"`
 	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
 	DefaultInt                int           `env:"MISSING_INT,default=7"`
+	DefaultFloat32            float32       `env:"MISSING_FLOAT32,default=8.9"`
+	DefaultFloat64            float64       `env:"MISSING_FLOAT64,default=10.11"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
 	DefaultStringSlice        []string      `env:"MISSING_STRING_SLICE,default=separate,values"`
 	DefaultRequiredSlice      []string      `env:"MISSING_REQUIRED_DEFAULT,default=other,things,required=true"`
@@ -93,12 +106,51 @@ type IterValuesStruct struct {
 	KVStringSlice []string        `env:"KV"`
 }
 
+type Base64EncodedString string
+
+func (b *Base64EncodedString) UnmarshalEnvironmentValue(data string) error {
+	value, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return err
+	}
+	*b = Base64EncodedString(value)
+	return nil
+}
+
+func (b Base64EncodedString) MarshalEnvironmentValue() (string, error) {
+	return base64.StdEncoding.EncodeToString([]byte(b)), nil
+}
+
+type JSONData struct {
+	SomeField int `json:"someField"`
+}
+
+func (j *JSONData) UnmarshalEnvironmentValue(data string) error {
+	var tmp JSONData
+	err := json.Unmarshal([]byte(data), &tmp)
+	if err != nil {
+		return err
+	}
+	*j = tmp
+	return nil
+}
+
+func (j JSONData) MarshalEnvironmentValue() (string, error) {
+	bytes, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
 		"HOME":             "/home/test",
 		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
 		"EXTRA":            "extra",
 		"INT":              "1",
+		"FLOAT32":          "2.3",
+		"FLOAT64":          "4.5",
 		"BOOL":             "true",
 		"npm_config_cache": "first",
 		"NPM_CONFIG_CACHE": "second",
@@ -129,6 +181,14 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Int != 1 {
 		t.Errorf("Expected field value to be '%d' but got '%d'", 1, validStruct.Int)
+	}
+
+	if validStruct.Float32 != 2.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 2.3, validStruct.Float32)
+	}
+
+	if validStruct.Float64 != 4.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 4.5, validStruct.Float64)
 	}
 
 	if validStruct.Bool != true {
@@ -193,6 +253,35 @@ func TestUnmarshalPointer(t *testing.T) {
 
 	if validStruct.PointerMissing != nil {
 		t.Errorf("Expected field value to be '%v' but got '%s'", nil, *validStruct.PointerMissing)
+	}
+}
+
+func TestCustomUnmarshal(t *testing.T) {
+	someValue := "some value"
+	environ := map[string]string{
+		"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
+		"JSON_DATA":             `{ "someField": 42 }`,
+		"POINTER_JSON_DATA":     `{ "someField": 43 }`,
+	}
+
+	var validStruct ValidStruct
+	err := Unmarshal(environ, &validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if validStruct.Base64EncodedString != Base64EncodedString(someValue) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", someValue, string(validStruct.Base64EncodedString))
+	}
+
+	if validStruct.PointerJSONData == nil {
+		t.Errorf("Expected field value to be '%s' but got '%v'", someValue, nil)
+	} else if validStruct.PointerJSONData.SomeField != 43 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 43, validStruct.PointerJSONData.SomeField)
+	}
+
+	if validStruct.JSONData.SomeField != 42 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 42, validStruct.JSONData.SomeField)
 	}
 }
 
@@ -302,6 +391,8 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 	}
 	testCases := [][]interface{}{
 		{defaultValueStruct.DefaultInt, 7},
+		{defaultValueStruct.DefaultFloat32, float32(8.9)},
+		{defaultValueStruct.DefaultFloat64, 10.11},
 		{defaultValueStruct.DefaultBool, true},
 		{defaultValueStruct.DefaultString, "found"},
 		{defaultValueStruct.DefaultKeyValueString, "key=value"},
@@ -349,6 +440,8 @@ func TestMarshal(t *testing.T) {
 		},
 		Extra:        "extra",
 		Int:          1,
+		Float32:      float32(2.3),
+		Float64:      4.5,
 		Bool:         true,
 		MultipleTags: "foobar",
 		Duration:     3 * time.Minute,
@@ -373,6 +466,14 @@ func TestMarshal(t *testing.T) {
 
 	if environ["INT"] != "1" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["INT"])
+	}
+
+	if environ["FLOAT32"] != "2.3" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2.3", environ["FLOAT32"])
+	}
+
+	if environ["FLOAT64"] != "4.5" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "4.5", environ["FLOAT64"])
 	}
 
 	if environ["BOOL"] != "true" {
@@ -432,4 +533,43 @@ func TestMarshalPointer(t *testing.T) {
 	if ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "JENKINS_POINTER_MISSING", v)
 	}
+}
+
+func TestMarshalCustom(t *testing.T) {
+	someValue := Base64EncodedString("someValue")
+	validStruct := ValidStruct{
+		Base64EncodedString: someValue,
+		JSONData: JSONData{
+			SomeField: 42,
+		},
+		PointerJSONData: &JSONData{
+			SomeField: 43,
+		},
+	}
+	es, err := Marshal(&validStruct)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	v, ok := es["BASE64_ENCODED_STRING"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but missing", "BASE64_ENCODED_STRING")
+	} else if v != base64.StdEncoding.EncodeToString([]byte(someValue)) {
+		t.Errorf("Expected field value to be '%s' but got '%s'", base64.StdEncoding.EncodeToString([]byte(someValue)), v)
+	}
+
+	v, ok = es["JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "JSON_DATA", v)
+	} else if v != `{"someField":42}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":42}`, v)
+	}
+
+	v, ok = es["POINTER_JSON_DATA"]
+	if !ok {
+		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
+	} else if v != `{"someField":43}` {
+		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
+	}
+
 }
