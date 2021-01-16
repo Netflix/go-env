@@ -371,7 +371,7 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 	var requiredValuesStruct RequiredValueStruct
 	err := Unmarshal(environ, &requiredValuesStruct)
 	if err != ErrMissingRequiredValue {
-		t.Errorf("Expected error 'ErrMissingRequiredValue' but go '%s'", err)
+		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
 	environ["REQUIRED_VAL"] = "required"
 	err = Unmarshal(environ, &requiredValuesStruct)
