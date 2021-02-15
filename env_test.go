@@ -16,6 +16,7 @@ package env
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -89,6 +90,7 @@ type DefaultValueStruct struct {
 
 type RequiredValueStruct struct {
 	Required            string `env:"REQUIRED_VAL,required=true"`
+	RequiredMore        string `env:"REQUIRED_VAL_MORE,required=true"`
 	RequiredWithDefault string `env:"REQUIRED_MISSING,default=myValue,required=true"`
 	NotRequired         string `env:"NOT_REQUIRED,required=false"`
 	InvalidExtra        string `env:"INVALID,invalid=invalid"`
@@ -369,11 +371,20 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 func TestUnmarshalRequiredValues(t *testing.T) {
 	environ := map[string]string{}
 	var requiredValuesStruct RequiredValueStruct
+
+	// Try missing REQUIRED_VAL and REQUIRED_VAL_MORE
 	err := Unmarshal(environ, &requiredValuesStruct)
-	if err != ErrMissingRequiredValue {
+	if err.Error() != fmt.Errorf("%s [%s]", ErrMissingRequiredValue.Error(), "REQUIRED_VAL").Error() {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
+
+	// Fill REQUIRED_VAL and retry REQUIRED_VAL_MORE
 	environ["REQUIRED_VAL"] = "required"
+	err = Unmarshal(environ, &requiredValuesStruct)
+	if err.Error() != fmt.Errorf("%s [%s]", ErrMissingRequiredValue.Error(), "REQUIRED_VAL_MORE").Error() {
+		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
+	}
+	environ["REQUIRED_VAL_MORE"] = "required"
 	err = Unmarshal(environ, &requiredValuesStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)

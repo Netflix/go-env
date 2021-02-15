@@ -108,7 +108,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			if envTag.Default != "" {
 				envValue = envTag.Default
 			} else if envTag.Required {
-				return ErrMissingRequiredValue
+				return fmt.Errorf("%s %s", ErrMissingRequiredValue, envTag.Keys)
 			} else {
 				continue
 			}
