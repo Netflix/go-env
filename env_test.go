@@ -16,7 +16,6 @@ package env
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -374,14 +373,16 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 
 	// Try missing REQUIRED_VAL and REQUIRED_VAL_MORE
 	err := Unmarshal(environ, &requiredValuesStruct)
-	if err.Error() != fmt.Errorf("%s [%s]", ErrMissingRequiredValue.Error(), "REQUIRED_VAL").Error() {
+	errMissing := ErrMissingRequiredValue{Value: "REQUIRED_VAL"}
+	if err.Error() != errMissing.Error() {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
 
 	// Fill REQUIRED_VAL and retry REQUIRED_VAL_MORE
 	environ["REQUIRED_VAL"] = "required"
 	err = Unmarshal(environ, &requiredValuesStruct)
-	if err.Error() != fmt.Errorf("%s [%s]", ErrMissingRequiredValue.Error(), "REQUIRED_VAL_MORE").Error() {
+	errMissing = ErrMissingRequiredValue{Value: "REQUIRED_VAL_MORE"}
+	if err.Error() != errMissing.Error() {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
 	environ["REQUIRED_VAL_MORE"] = "required"
