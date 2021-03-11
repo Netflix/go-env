@@ -61,6 +61,10 @@ func (e ErrMissingRequiredValue) Error() string {
 // If the field has a type that is unsupported, Unmarshal returns
 // ErrUnsupportedType.
 func Unmarshal(es EnvSet, v interface{}) error {
+	return unmarshal(es, v, tag{})
+}
+
+func unmarshal(es EnvSet, v interface{}, prefixTag tag) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return ErrInvalidValue
@@ -74,6 +78,8 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
 		valueField := rv.Field(i)
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
 		switch valueField.Kind() {
 		case reflect.Struct:
 			if !valueField.Addr().CanInterface() {
@@ -81,14 +87,12 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			}
 
 			iface := valueField.Addr().Interface()
-			err := Unmarshal(es, iface)
+			err := unmarshal(es, iface, createPrefixTag(tag, prefixTag))
 			if err != nil {
 				return err
 			}
 		}
 
-		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
@@ -97,7 +101,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			return ErrUnexportedField
 		}
 
-		envTag := parseTag(tag)
+		envTag := parseTag(tag, prefixTag)
 
 		var (
 			envValue string
@@ -128,6 +132,13 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	}
 
 	return nil
+}
+
+func createPrefixTag(tag string, prefixTag tag) tag {
+	if tag == "" {
+		return prefixTag
+	}
+	return parseTag(tag, prefixTag)
 }
 
 func set(t reflect.Type, f reflect.Value, value string) error {
@@ -241,6 +252,10 @@ func UnmarshalFromEnviron(v interface{}) (EnvSet, error) {
 //
 // Nested structs are traversed recursively.
 func Marshal(v interface{}) (EnvSet, error) {
+	return marshal(v, tag{})
+}
+
+func marshal(v interface{}, prefixTag tag) (EnvSet, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return nil, ErrInvalidValue
@@ -255,6 +270,8 @@ func Marshal(v interface{}) (EnvSet, error) {
 	t := rv.Type()
 	for i := 0; i < rv.NumField(); i++ {
 		valueField := rv.Field(i)
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
 		switch valueField.Kind() {
 		case reflect.Struct:
 			if !valueField.Addr().CanInterface() {
@@ -262,23 +279,18 @@ func Marshal(v interface{}) (EnvSet, error) {
 			}
 
 			iface := valueField.Addr().Interface()
-			nes, err := Marshal(iface)
+			nes, err := marshal(iface, createPrefixTag(tag, prefixTag))
 			if err != nil {
 				return nil, err
 			}
-
-			for k, v := range nes {
-				es[k] = v
-			}
+			merge(es, nes)
 		}
 
-		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
 
-		envKeys := strings.Split(tag, ",")
+		envTag := parseTag(tag, prefixTag)
 
 		var el interface{}
 		if typeField.Type.Kind() == reflect.Ptr {
@@ -301,12 +313,24 @@ func Marshal(v interface{}) (EnvSet, error) {
 			envValue = fmt.Sprintf("%v", el)
 		}
 
-		for _, envKey := range envKeys {
-			es[envKey] = envValue
+		for _, envKey := range envTag.Keys {
+			setEnvValue(es, envKey, envValue)
 		}
 	}
 
 	return es, nil
+}
+
+func merge(to EnvSet, from EnvSet) {
+	for k, v := range from {
+		setEnvValue(to, k, v)
+	}
+}
+
+func setEnvValue(es EnvSet, envKey string, envValue string) {
+	if _, ok := es[envKey]; !ok {
+		es[envKey] = envValue
+	}
 }
 
 type tag struct {
@@ -315,7 +339,7 @@ type tag struct {
 	Required bool
 }
 
-func parseTag(tagString string) tag {
+func parseTag(tagString string, prefixTag tag) tag {
 	var t tag
 	envKeys := strings.Split(tagString, ",")
 	for _, key := range envKeys {
@@ -331,7 +355,15 @@ func parseTag(tagString string) tag {
 				continue
 			}
 		} else {
-			t.Keys = append(t.Keys, key)
+			if len(prefixTag.Keys) == 0 {
+				t.Keys = append(t.Keys, key)
+			}
+			for _, prefixKey := range prefixTag.Keys {
+				if len(prefixKey) != 0 {
+					prefixKey = prefixKey + "_"
+				}
+				t.Keys = append(t.Keys, prefixKey+key)
+			}
 		}
 	}
 	return t
