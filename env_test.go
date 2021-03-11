@@ -49,10 +49,13 @@ type ValidStruct struct {
 	Extra string
 
 	// Additional supported types
-	Int     int     `env:"INT"`
-	Float32 float32 `env:"FLOAT32"`
-	Float64 float64 `env:"FLOAT64"`
-	Bool    bool    `env:"BOOL"`
+	Int     int             `env:"INT"`
+	Float32 float32         `env:"FLOAT32"`
+	Float64 float64         `env:"FLOAT64"`
+	Bool    bool            `env:"BOOL"`
+	Struct1 SupportedStruct `env:"STRUCT_1"`
+	Struct2 SupportedStruct `env:"STRUCT_2"`
+	Struct3 SupportedStruct
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
 
@@ -73,6 +76,18 @@ type UnsupportedStruct struct {
 
 type UnexportedStruct struct {
 	home string `env:"HOME"`
+}
+
+type SupportedStruct struct {
+	BasicStruct
+	Struct BasicStruct `env:"STRUCT"`
+}
+
+type BasicStruct struct {
+	Int     int     `env:"INT"`
+	Float32 float32 `env:"FLOAT32"`
+	Float64 float64 `env:"FLOAT64"`
+	Bool    bool    `env:"BOOL"`
 }
 
 type DefaultValueStruct struct {
@@ -134,16 +149,32 @@ func (j JSONData) MarshalEnvironmentValue() (string, error) {
 
 func TestUnmarshal(t *testing.T) {
 	environ := map[string]string{
-		"HOME":             "/home/test",
-		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
-		"EXTRA":            "extra",
-		"INT":              "1",
-		"FLOAT32":          "2.3",
-		"FLOAT64":          "4.5",
-		"BOOL":             "true",
-		"npm_config_cache": "first",
-		"NPM_CONFIG_CACHE": "second",
-		"TYPE_DURATION":    "5s",
+		"HOME":                    "/home/test",
+		"WORKSPACE":               "/mnt/builds/slave/workspace/test",
+		"EXTRA":                   "extra",
+		"INT":                     "1",
+		"FLOAT32":                 "2.3",
+		"FLOAT64":                 "4.5",
+		"BOOL":                    "true",
+		"npm_config_cache":        "first",
+		"NPM_CONFIG_CACHE":        "second",
+		"TYPE_DURATION":           "5s",
+		"STRUCT_1_INT":            "3",
+		"STRUCT_1_FLOAT32":        "4.3",
+		"STRUCT_1_FLOAT64":        "5.5",
+		"STRUCT_1_BOOL":           "true",
+		"STRUCT_1_STRUCT_INT":     "6",
+		"STRUCT_1_STRUCT_FLOAT32": "7.3",
+		"STRUCT_1_STRUCT_FLOAT64": "8.5",
+		"STRUCT_1_STRUCT_BOOL":    "true",
+		"STRUCT_2_INT":            "9",
+		"STRUCT_2_FLOAT32":        "10.3",
+		"STRUCT_2_FLOAT64":        "11.5",
+		"STRUCT_2_BOOL":           "true",
+		"STRUCT_2_STRUCT_INT":     "12",
+		"STRUCT_2_STRUCT_FLOAT32": "13.3",
+		"STRUCT_2_STRUCT_FLOAT64": "14.5",
+		"STRUCT_2_STRUCT_BOOL":    "true",
 	}
 
 	var validStruct ValidStruct
@@ -182,6 +213,102 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Bool != true {
 		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Bool)
+	}
+
+	if validStruct.Struct1.Int != 3 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 3, validStruct.Struct1.Int)
+	}
+
+	if validStruct.Struct1.Float32 != 4.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 4.3, validStruct.Struct1.Float32)
+	}
+
+	if validStruct.Struct1.Float64 != 5.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 5.5, validStruct.Struct1.Float64)
+	}
+
+	if validStruct.Struct1.Bool != true {
+		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Struct1.Bool)
+	}
+
+	if validStruct.Struct1.Struct.Int != 6 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 6, validStruct.Struct1.Struct.Int)
+	}
+
+	if validStruct.Struct1.Struct.Float32 != 7.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 7.3, validStruct.Struct1.Struct.Float32)
+	}
+
+	if validStruct.Struct1.Struct.Float64 != 8.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 8.5, validStruct.Struct1.Struct.Float64)
+	}
+
+	if validStruct.Struct1.Struct.Bool != true {
+		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Struct1.Struct.Bool)
+	}
+
+	if validStruct.Struct2.Int != 9 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 9, validStruct.Struct2.Int)
+	}
+
+	if validStruct.Struct2.Float32 != 10.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 10.3, validStruct.Struct2.Float32)
+	}
+
+	if validStruct.Struct2.Float64 != 11.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 11.5, validStruct.Struct2.Float64)
+	}
+
+	if validStruct.Struct2.Bool != true {
+		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Struct2.Bool)
+	}
+
+	if validStruct.Struct2.Struct.Int != 12 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 12, validStruct.Struct2.Struct.Int)
+	}
+
+	if validStruct.Struct2.Struct.Float32 != 13.3 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 13.3, validStruct.Struct2.Struct.Float32)
+	}
+
+	if validStruct.Struct2.Struct.Float64 != 14.5 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 14.5, validStruct.Struct2.Struct.Float64)
+	}
+
+	if validStruct.Struct2.Struct.Bool != true {
+		t.Errorf("Expected field value to be '%t' but got '%t'", true, validStruct.Struct2.Struct.Bool)
+	}
+
+	if validStruct.Struct3.Int != 0 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 0, validStruct.Struct3.Int)
+	}
+
+	if validStruct.Struct3.Float32 != 0 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 0.0, validStruct.Struct3.Float32)
+	}
+
+	if validStruct.Struct3.Float64 != 0 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 0.0, validStruct.Struct3.Float64)
+	}
+
+	if validStruct.Struct3.Bool != false {
+		t.Errorf("Expected field value to be '%t' but got '%t'", false, validStruct.Struct3.Bool)
+	}
+
+	if validStruct.Struct3.Struct.Int != 0 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 0, validStruct.Struct3.Struct.Int)
+	}
+
+	if validStruct.Struct3.Struct.Float32 != 0 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 0.0, validStruct.Struct3.Struct.Float32)
+	}
+
+	if validStruct.Struct3.Struct.Float64 != 0 {
+		t.Errorf("Expected field value to be '%f' but got '%f'", 0.0, validStruct.Struct3.Struct.Float64)
+	}
+
+	if validStruct.Struct3.Struct.Bool != false {
+		t.Errorf("Expected field value to be '%t' but got '%t'", false, validStruct.Struct3.Struct.Bool)
 	}
 
 	if validStruct.MultipleTags != "first" {
@@ -407,11 +534,25 @@ func TestMarshal(t *testing.T) {
 		}{
 			Workspace: "/mnt/builds/slave/workspace/test",
 		},
-		Extra:        "extra",
-		Int:          1,
-		Float32:      float32(2.3),
-		Float64:      4.5,
-		Bool:         true,
+		Extra:   "extra",
+		Int:     1,
+		Float32: float32(2.3),
+		Float64: 4.5,
+		Bool:    true,
+		Struct1: SupportedStruct{
+			BasicStruct: BasicStruct{
+				Int:     3,
+				Float32: 4.3,
+				Float64: 5.5,
+				Bool:    true,
+			},
+			Struct: BasicStruct{
+				Int:     6,
+				Float32: 7.3,
+				Float64: 8.5,
+				Bool:    true,
+			},
+		},
 		MultipleTags: "foobar",
 		Duration:     3 * time.Minute,
 	}
@@ -447,6 +588,38 @@ func TestMarshal(t *testing.T) {
 
 	if environ["BOOL"] != "true" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "true", environ["BOOL"])
+	}
+
+	if environ["STRUCT_1_INT"] != "3" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["STRUCT_1_INT"])
+	}
+
+	if environ["STRUCT_1_FLOAT32"] != "4.3" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2.3", environ["STRUCT_1_FLOAT32"])
+	}
+
+	if environ["STRUCT_1_FLOAT64"] != "5.5" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "4.5", environ["STRUCT_1_FLOAT64"])
+	}
+
+	if environ["STRUCT_1_BOOL"] != "true" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "true", environ["STRUCT_1_BOOL"])
+	}
+
+	if environ["STRUCT_1_STRUCT_INT"] != "6" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["STRUCT_1_STRUCT_INT"])
+	}
+
+	if environ["STRUCT_1_STRUCT_FLOAT32"] != "7.3" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2.3", environ["STRUCT_1_STRUCT_FLOAT32"])
+	}
+
+	if environ["STRUCT_1_STRUCT_FLOAT64"] != "8.5" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "4.5", environ["STRUCT_1_STRUCT_FLOAT64"])
+	}
+
+	if environ["STRUCT_1_STRUCT_BOOL"] != "true" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "true", environ["STRUCT_1_STRUCT_BOOL"])
 	}
 
 	if environ["npm_config_cache"] != "foobar" {
