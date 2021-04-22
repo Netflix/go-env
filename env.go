@@ -37,11 +37,17 @@ var (
 	// ErrUnexportedField returned when a field with tag "env" is not exported.
 	ErrUnexportedField = errors.New("field must be exported")
 
-	// ErrMissingRequiredValue returned when a field with required=true contains no value or default
-	ErrMissingRequiredValue = errors.New("value for this field is required")
-
 	unmarshalType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 )
+
+// ErrMissingRequiredValue returned when a field with required=true contains no value or default
+type ErrMissingRequiredValue struct {
+	Value string
+}
+
+func (e ErrMissingRequiredValue) Error() string {
+	return fmt.Sprintf("value for this field is required [%s]", e.Value)
+}
 
 // Unmarshal parses an EnvSet and stores the result in the value pointed to by
 // v. Fields that are matched in v will be deleted from EnvSet, resulting in
@@ -108,7 +114,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			if envTag.Default != "" {
 				envValue = envTag.Default
 			} else if envTag.Required {
-				return ErrMissingRequiredValue
+				return &ErrMissingRequiredValue{Value: envTag.Keys[0]}
 			} else {
 				continue
 			}
