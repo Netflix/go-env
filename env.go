@@ -213,7 +213,11 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 		}
 		f.SetUint(v)
 	case reflect.Slice:
-		values := strings.Split(value, ",")
+		separator := os.Getenv("ENV_SLICE_SEPARATOR")
+		if separator == "" {
+			separator = "|"
+		}
+		values := strings.Split(value, separator)
 		switch t.Elem().Kind() {
 		case reflect.String:
 			// already []string, just set directly
@@ -338,30 +342,21 @@ type tag struct {
 }
 
 func parseTag(tagString string) tag {
-	var (
-		t           tag
-		seenDefault bool
-	)
+	var t tag
 	envKeys := strings.Split(tagString, ",")
 	for _, key := range envKeys {
-		switch {
-		case strings.Contains(key, "="):
+		if strings.Contains(key, "=") {
 			keyData := strings.SplitN(key, "=", 2)
 			switch strings.ToLower(keyData[0]) {
 			case "default":
 				t.Default = keyData[1]
-				seenDefault = true
 			case "required":
-				// ignoring the error and assume invalid input is false
-				t.Required, _ = strconv.ParseBool(keyData[1])
+				t.Required = strings.ToLower(keyData[1]) == "true"
 			default:
-				if seenDefault {
-					t.Default = fmt.Sprintf("%s,%s", t.Default, key)
-				}
+				// just ignoring unsupported keys
+				continue
 			}
-		case seenDefault:
-			t.Default = fmt.Sprintf("%s,%s", t.Default, key)
-		default:
+		} else {
 			t.Keys = append(t.Keys, key)
 		}
 	}
