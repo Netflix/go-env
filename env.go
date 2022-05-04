@@ -190,13 +190,7 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetFloat(v)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-		v, err := strconv.Atoi(value)
-		if err != nil {
-			return err
-		}
-		f.SetInt(int64(v))
-	case reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if t.PkgPath() == "time" && t.Name() == "Duration" {
 			duration, err := time.ParseDuration(value)
 			if err != nil {
@@ -207,7 +201,7 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			break
 		}
 
-		// Handling this separately because strconv.Atoi returns int,
+		// Using ParseInt because strconv.Atoi returns int,
 		// which is not guaranteed to be 64-bit on all platforms
 		v, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
