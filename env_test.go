@@ -50,6 +50,7 @@ type ValidStruct struct {
 
 	// Additional supported types
 	Int     int     `env:"INT"`
+	Uint    uint    `env:"UINT"`
 	Float32 float32 `env:"FLOAT32"`
 	Float64 float64 `env:"FLOAT64"`
 	Bool    bool    `env:"BOOL"`
@@ -138,6 +139,7 @@ func TestUnmarshal(t *testing.T) {
 		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
 		"EXTRA":            "extra",
 		"INT":              "1",
+		"UINT":             "2",
 		"FLOAT32":          "2.3",
 		"FLOAT64":          "4.5",
 		"BOOL":             "true",
@@ -409,6 +411,7 @@ func TestMarshal(t *testing.T) {
 		},
 		Extra:        "extra",
 		Int:          1,
+		Uint:         2,
 		Float32:      float32(2.3),
 		Float64:      4.5,
 		Bool:         true,
@@ -435,6 +438,10 @@ func TestMarshal(t *testing.T) {
 
 	if environ["INT"] != "1" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["INT"])
+	}
+
+	if environ["UINT"] != "2" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2", environ["UINT"])
 	}
 
 	if environ["FLOAT32"] != "2.3" {

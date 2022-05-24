@@ -206,6 +206,12 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetInt(int64(v))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		f.SetUint(v)
 	default:
 		return ErrUnsupportedType
 	}
