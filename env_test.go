@@ -39,6 +39,9 @@ type ValidStruct struct {
 	// PointerInt should work along with other supported types.
 	PointerInt *int `env:"POINTER_INT"`
 
+	// PointerUint should work along with other supported types.
+	PointerUint *uint `env:"POINTER_UINT"`
+
 	// PointerPointerString should be recursed into.
 	PointerPointerString **string `env:"POINTER_POINTER_STRING"`
 
@@ -50,6 +53,7 @@ type ValidStruct struct {
 
 	// Additional supported types
 	Int     int     `env:"INT"`
+	Uint    uint    `env:"UINT"`
 	Float32 float32 `env:"FLOAT32"`
 	Float64 float64 `env:"FLOAT64"`
 	Bool    bool    `env:"BOOL"`
@@ -80,6 +84,7 @@ type DefaultValueStruct struct {
 	DefaultKeyValueString     string        `env:"MISSING_KVSTRING,default=key=value"`
 	DefaultBool               bool          `env:"MISSING_BOOL,default=true"`
 	DefaultInt                int           `env:"MISSING_INT,default=7"`
+	DefaultUint               uint          `env:"MISSING_UINT,default=4294967295"`
 	DefaultFloat32            float32       `env:"MISSING_FLOAT32,default=8.9"`
 	DefaultFloat64            float64       `env:"MISSING_FLOAT64,default=10.11"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
@@ -138,6 +143,7 @@ func TestUnmarshal(t *testing.T) {
 		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
 		"EXTRA":            "extra",
 		"INT":              "1",
+		"UINT":             "4294967295",
 		"FLOAT32":          "2.3",
 		"FLOAT64":          "4.5",
 		"BOOL":             "true",
@@ -170,6 +176,10 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Int != 1 {
 		t.Errorf("Expected field value to be '%d' but got '%d'", 1, validStruct.Int)
+	}
+
+	if validStruct.Uint != 4294967295 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 4294967295, validStruct.Uint)
 	}
 
 	if validStruct.Float32 != 2.3 {
@@ -209,6 +219,7 @@ func TestUnmarshalPointer(t *testing.T) {
 	environ := map[string]string{
 		"POINTER_STRING":         "",
 		"POINTER_INT":            "1",
+		"POINTER_UINT":           "4294967295",
 		"POINTER_POINTER_STRING": "",
 	}
 
@@ -228,6 +239,12 @@ func TestUnmarshalPointer(t *testing.T) {
 		t.Errorf("Expected field value to be '%d' but got '%v'", 1, nil)
 	} else if *validStruct.PointerInt != 1 {
 		t.Errorf("Expected field value to be '%d' but got '%d'", 1, *validStruct.PointerInt)
+	}
+
+	if validStruct.PointerUint == nil {
+		t.Errorf("Expected field value to be '%d' but got '%v'", 4294967295, nil)
+	} else if *validStruct.PointerUint != 4294967295 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", 4294967295, *validStruct.PointerUint)
 	}
 
 	if validStruct.PointerPointerString == nil {
@@ -351,6 +368,7 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 	}
 	testCases := [][]interface{}{
 		{defaultValueStruct.DefaultInt, 7},
+		{defaultValueStruct.DefaultUint, uint(4294967295)},
 		{defaultValueStruct.DefaultFloat32, float32(8.9)},
 		{defaultValueStruct.DefaultFloat64, 10.11},
 		{defaultValueStruct.DefaultBool, true},
@@ -409,6 +427,7 @@ func TestMarshal(t *testing.T) {
 		},
 		Extra:        "extra",
 		Int:          1,
+		Uint:         4294967295,
 		Float32:      float32(2.3),
 		Float64:      4.5,
 		Bool:         true,
@@ -435,6 +454,10 @@ func TestMarshal(t *testing.T) {
 
 	if environ["INT"] != "1" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "1", environ["INT"])
+	}
+
+	if environ["UINT"] != "4294967295" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "2", environ["UINT"])
 	}
 
 	if environ["FLOAT32"] != "2.3" {
