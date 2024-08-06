@@ -10,19 +10,16 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: [ '1.19', '1.20', '1.21', '1.22' ]
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Go ${{ matrix.go-version }}
+    - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.22
 
-    - name: Build ${{ matrix.go-version }}
+    - name: Build
       run: go build -v ./...
 
-    - name: Test ${{ matrix.go-version }}
+    - name: Test
       run: go test -v ./...
