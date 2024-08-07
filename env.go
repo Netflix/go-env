@@ -212,6 +212,26 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetUint(v)
+	case reflect.Slice:
+		separator := os.Getenv("ENV_SLICE_SEPARATOR")
+		if separator == "" {
+			separator = "|"
+		}
+		values := strings.Split(value, separator)
+		switch t.Elem().Kind() {
+		case reflect.String:
+			// already []string, just set directly
+			f.Set(reflect.ValueOf(values))
+		default:
+			dest := reflect.MakeSlice(reflect.SliceOf(t.Elem()), len(values), len(values))
+			for i, v := range values {
+				err := set(t.Elem(), dest.Index(i), v)
+				if err != nil {
+					return err
+				}
+			}
+			f.Set(dest)
+		}
 	default:
 		return ErrUnsupportedType
 	}
