@@ -90,6 +90,7 @@ type DefaultValueStruct struct {
 	DefaultFloat64            float64       `env:"MISSING_FLOAT64,default=10.11"`
 	DefaultDuration           time.Duration `env:"MISSING_DURATION,default=5s"`
 	DefaultStringSlice        []string      `env:"MISSING_STRING_SLICE,default=separate|values"`
+	DefaultSliceWithSeparator []string      `env:"ANOTHER_MISSING_STRING_SLICE,default=separate&values,separator=&"`
 	DefaultRequiredSlice      []string      `env:"MISSING_REQUIRED_DEFAULT,default=other|things,required=true"`
 	DefaultWithOptionsMissing string        `env:"MISSING_1,MISSING_2,default=present"`
 	DefaultWithOptionsPresent string        `env:"MISSING_1,PRESENT,default=present"`
@@ -147,6 +148,7 @@ type IterValuesStruct struct {
 	DurationSlice []time.Duration `env:"DURATION"`
 	BoolSlice     []bool          `env:"BOOL"`
 	KVStringSlice []string        `env:"KV"`
+	WithSeparator []int           `env:"SEPARATOR,separator=&"`
 }
 
 func TestUnmarshal(t *testing.T) {
@@ -371,17 +373,19 @@ func TestUnmarshalUnexported(t *testing.T) {
 
 func TestUnmarshalSlice(t *testing.T) {
 	environ := map[string]string{
-		"STRING":   "separate|values",
-		"INT":      "1|2",
-		"INT64":    "3|4",
-		"DURATION": "60s|70h",
-		"BOOL":     "true|false",
-		"KV":       "k1=v1|k2=v2",
+		"STRING":    "separate|values",
+		"INT":       "1|2",
+		"INT64":     "3|4",
+		"DURATION":  "60s|70h",
+		"BOOL":      "true|false",
+		"KV":        "k1=v1|k2=v2",
+		"SEPARATOR": "1&2", // struct has `separator=&`
 	}
 	var iterValStruct IterValuesStruct
 	err := Unmarshal(environ, &iterValStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got %v", err)
+		return
 	}
 	testCases := [][]interface{}{
 		{iterValStruct.StringSlice, []string{"separate", "values"}},
@@ -390,6 +394,7 @@ func TestUnmarshalSlice(t *testing.T) {
 		{iterValStruct.DurationSlice, []time.Duration{time.Second * 60, time.Hour * 70}},
 		{iterValStruct.BoolSlice, []bool{true, false}},
 		{iterValStruct.KVStringSlice, []string{"k1=v1", "k2=v2"}},
+		{iterValStruct.WithSeparator, []int{1, 2}},
 	}
 	for _, testCase := range testCases {
 		if !reflect.DeepEqual(testCase[0], testCase[1]) {
@@ -417,6 +422,7 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 		{defaultValueStruct.DefaultKeyValueString, "key=value"},
 		{defaultValueStruct.DefaultDuration, 5 * time.Second},
 		{defaultValueStruct.DefaultStringSlice, []string{"separate", "values"}},
+		{defaultValueStruct.DefaultSliceWithSeparator, []string{"separate", "values"}},
 		{defaultValueStruct.DefaultRequiredSlice, []string{"other", "things"}},
 		{defaultValueStruct.DefaultWithOptionsMissing, "present"},
 		{defaultValueStruct.DefaultWithOptionsPresent, "youFoundMe"},
