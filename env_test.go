@@ -57,6 +57,7 @@ type ValidStruct struct {
 	Uint    uint    `env:"UINT"`
 	Float32 float32 `env:"FLOAT32"`
 	Float64 float64 `env:"FLOAT64"`
+	Int64   int64   `env:"INT64"`
 	Bool    bool    `env:"BOOL"`
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
@@ -160,6 +161,7 @@ func TestUnmarshal(t *testing.T) {
 		"UINT":             "4294967295",
 		"FLOAT32":          "2.3",
 		"FLOAT64":          "4.5",
+		"INT64":            "4294967296",
 		"BOOL":             "true",
 		"npm_config_cache": "first",
 		"NPM_CONFIG_CACHE": "second",
@@ -202,6 +204,10 @@ func TestUnmarshal(t *testing.T) {
 
 	if validStruct.Float64 != 4.5 {
 		t.Errorf("Expected field value to be '%f' but got '%f'", 4.5, validStruct.Float64)
+	}
+
+	if validStruct.Int64 != 4294967296 {
+		t.Errorf("Expected field value to be '%d' but got '%d'", int64(4294967296), validStruct.Int64)
 	}
 
 	if validStruct.Bool != true {

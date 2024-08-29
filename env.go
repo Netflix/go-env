@@ -201,11 +201,13 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 			break
 		}
 
-		v, err := strconv.Atoi(value)
+		// Using ParseInt because strconv.Atoi returns int,
+		// which is not guaranteed to be 64-bit on all platforms
+		v, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			return err
 		}
-		f.SetInt(int64(v))
+		f.SetInt(v)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		v, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
