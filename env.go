@@ -120,7 +120,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			}
 		}
 
-		err := set(typeField.Type, valueField, envValue)
+		err := set(typeField.Type, valueField, envValue, envTag.Separator)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	return nil
 }
 
-func set(t reflect.Type, f reflect.Value, value string) error {
+func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 	// See if the type implements Unmarshaler and use that first,
 	// otherwise, fallback to the previous logic
 	var isUnmarshaler bool
@@ -165,7 +165,7 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 	switch t.Kind() {
 	case reflect.Ptr:
 		ptr := reflect.New(t.Elem())
-		err := set(t.Elem(), ptr.Elem(), value)
+		err := set(t.Elem(), ptr.Elem(), value, sliceSeparator)
 		if err != nil {
 			return err
 		}
@@ -212,6 +212,25 @@ func set(t reflect.Type, f reflect.Value, value string) error {
 			return err
 		}
 		f.SetUint(v)
+	case reflect.Slice:
+		if sliceSeparator == "" {
+			sliceSeparator = "|"
+		}
+		values := strings.Split(value, sliceSeparator)
+		switch t.Elem().Kind() {
+		case reflect.String:
+			// already []string, just set directly
+			f.Set(reflect.ValueOf(values))
+		default:
+			dest := reflect.MakeSlice(reflect.SliceOf(t.Elem()), len(values), len(values))
+			for i, v := range values {
+				err := set(t.Elem(), dest.Index(i), v, sliceSeparator)
+				if err != nil {
+					return err
+				}
+			}
+			f.Set(dest)
+		}
 	default:
 		return ErrUnsupportedType
 	}
@@ -316,9 +335,10 @@ func Marshal(v interface{}) (EnvSet, error) {
 }
 
 type tag struct {
-	Keys     []string
-	Default  string
-	Required bool
+	Keys      []string
+	Default   string
+	Required  bool
+	Separator string
 }
 
 func parseTag(tagString string) tag {
@@ -332,6 +352,8 @@ func parseTag(tagString string) tag {
 				t.Default = keyData[1]
 			case "required":
 				t.Required = strings.ToLower(keyData[1]) == "true"
+			case "separator":
+				t.Separator = keyData[1]
 			default:
 				// just ignoring unsupported keys
 				continue
