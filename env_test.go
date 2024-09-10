@@ -61,6 +61,9 @@ type ValidStruct struct {
 
 	MultipleTags string `env:"npm_config_cache,NPM_CONFIG_CACHE"`
 
+	MultipleTagsWithDefault string `env:"multiple_tags_with_default,MULTIPLE_TAGS_WITH_DEFAULT,default=default_tags_value"`
+
+	TagWithDefault string `env:"tag_with_default,default=default_tag_value"`
 	// time.Duration is supported
 	Duration time.Duration `env:"TYPE_DURATION"`
 
@@ -474,14 +477,16 @@ func TestMarshal(t *testing.T) {
 		}{
 			Workspace: "/mnt/builds/slave/workspace/test",
 		},
-		Extra:        "extra",
-		Int:          1,
-		Uint:         4294967295,
-		Float32:      float32(2.3),
-		Float64:      4.5,
-		Bool:         true,
-		MultipleTags: "foobar",
-		Duration:     3 * time.Minute,
+		Extra:                   "extra",
+		Int:                     1,
+		Uint:                    4294967295,
+		Float32:                 float32(2.3),
+		Float64:                 4.5,
+		Bool:                    true,
+		MultipleTags:            "foobar",
+		MultipleTagsWithDefault: "baz",
+		TagWithDefault:          "bar",
+		Duration:                3 * time.Minute,
 	}
 
 	environ, err := Marshal(&validStruct)
@@ -527,6 +532,22 @@ func TestMarshal(t *testing.T) {
 
 	if environ["NPM_CONFIG_CACHE"] != "foobar" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "foobar", environ["NPM_CONFIG_CACHE"])
+	}
+
+	if environ["multiple_tags_with_default"] != "baz" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "baz", environ["multiple_tags_with_default"])
+	}
+
+	if environ["default=default_tags_value"] != "" {
+		t.Errorf("'default=default_tags_value' not expected to be a valid field value.")
+	}
+
+	if environ["tag_with_default"] != "bar" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "bar", environ["tag_with_default"])
+	}
+
+	if environ["default=default_tag_value"] != "" {
+		t.Errorf("'default=default_tag_value' not expected to be a valid field value.")
 	}
 
 	if environ["TYPE_DURATION"] != "3m0s" {
