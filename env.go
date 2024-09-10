@@ -327,6 +327,12 @@ func Marshal(v interface{}) (EnvSet, error) {
 		}
 
 		for _, envKey := range envKeys {
+			if strings.Contains(envKey, "=") {
+				switch strings.ToLower(strings.SplitN(envKey, "=", 2)[0]) {
+				case "separator", "required", "default":
+					continue
+				}
+			}
 			es[envKey] = envValue
 		}
 	}
