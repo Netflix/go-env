@@ -26,6 +26,17 @@ import (
 	"time"
 )
 
+const (
+	// tagKeyDefault is the key used in the struct field tag to specify a default
+	tagKeyDefault = "default"
+	// tagKeyRequired is the key used in the struct field tag to specify that the
+	// field is required
+	tagKeyRequired = "required"
+	// tagKeySeparator is the key used in the struct field tag to specify a
+	//separator for slice fields
+	tagKeySeparator = "separator"
+)
+
 var (
 	// ErrInvalidValue returned when the value passed to Unmarshal is nil or not a
 	// pointer to a struct.
@@ -37,11 +48,14 @@ var (
 	// ErrUnexportedField returned when a field with tag "env" is not exported.
 	ErrUnexportedField = errors.New("field must be exported")
 
+	// unmarshalType is the reflect.Type element of the Unmarshaler interface
 	unmarshalType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 )
 
 // ErrMissingRequiredValue returned when a field with required=true contains no value or default
 type ErrMissingRequiredValue struct {
+	// Value is the type of value that is required to provide error context to
+	// the caller
 	Value string
 }
 
@@ -72,7 +86,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	}
 
 	t := rv.Type()
-	for i := 0; i < rv.NumField(); i++ {
+	for i := range rv.NumField() {
 		valueField := rv.Field(i)
 		switch valueField.Kind() {
 		case reflect.Struct:
@@ -120,8 +134,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			}
 		}
 
-		err := set(typeField.Type, valueField, envValue, envTag.Separator)
-		if err != nil {
+		if err := set(typeField.Type, valueField, envValue, envTag.Separator); err != nil {
 			return err
 		}
 		delete(es, tag)
@@ -165,8 +178,7 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 	switch t.Kind() {
 	case reflect.Ptr:
 		ptr := reflect.New(t.Elem())
-		err := set(t.Elem(), ptr.Elem(), value, sliceSeparator)
-		if err != nil {
+		if err := set(t.Elem(), ptr.Elem(), value, sliceSeparator); err != nil {
 			return err
 		}
 		f.Set(ptr)
@@ -224,8 +236,7 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 		default:
 			dest := reflect.MakeSlice(reflect.SliceOf(t.Elem()), len(values), len(values))
 			for i, v := range values {
-				err := set(t.Elem(), dest.Index(i), v, sliceSeparator)
-				if err != nil {
+				if err := set(t.Elem(), dest.Index(i), v, sliceSeparator); err != nil {
 					return err
 				}
 			}
@@ -278,7 +289,7 @@ func Marshal(v interface{}) (EnvSet, error) {
 
 	es := make(EnvSet)
 	t := rv.Type()
-	for i := 0; i < rv.NumField(); i++ {
+	for i := range rv.NumField() {
 		valueField := rv.Field(i)
 		switch valueField.Kind() {
 		case reflect.Struct:
@@ -286,8 +297,7 @@ func Marshal(v interface{}) (EnvSet, error) {
 				continue
 			}
 
-			iface := valueField.Addr().Interface()
-			nes, err := Marshal(iface)
+			nes, err := Marshal(valueField.Addr().Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -315,8 +325,10 @@ func Marshal(v interface{}) (EnvSet, error) {
 			el = valueField.Interface()
 		}
 
-		var err error
-		var envValue string
+		var (
+			err      error
+			envValue string
+		)
 		if m, ok := el.(Marshaler); ok {
 			envValue, err = m.MarshalEnvironmentValue()
 			if err != nil {
@@ -334,32 +346,39 @@ func Marshal(v interface{}) (EnvSet, error) {
 	return es, nil
 }
 
+// tag is a struct used to store the parsed "env" field tag when unmarshalling.
 type tag struct {
-	Keys      []string
-	Default   string
-	Required  bool
+	// Keys is used to store the keys specified in the "env" field tag
+	Keys []string
+	// Default is used to specify a default value for the field
+	Default string
+	// Required is used to specify that the field is required
+	Required bool
+	// Separator is used to split the value of a slice field
 	Separator string
 }
 
+// parseTag is used in the Unmarshal function to parse the "env" field tags
+// into a tag struct for use in the set function.
 func parseTag(tagString string) tag {
 	var t tag
 	envKeys := strings.Split(tagString, ",")
 	for _, key := range envKeys {
-		if strings.Contains(key, "=") {
-			keyData := strings.SplitN(key, "=", 2)
-			switch strings.ToLower(keyData[0]) {
-			case "default":
-				t.Default = keyData[1]
-			case "required":
-				t.Required = strings.ToLower(keyData[1]) == "true"
-			case "separator":
-				t.Separator = keyData[1]
-			default:
-				// just ignoring unsupported keys
-				continue
-			}
-		} else {
+		if !strings.Contains(key, "=") {
 			t.Keys = append(t.Keys, key)
+			continue
+		}
+		keyData := strings.SplitN(key, "=", 2)
+		switch strings.ToLower(keyData[0]) {
+		case tagKeyDefault:
+			t.Default = keyData[1]
+		case tagKeyRequired:
+			t.Required = strings.ToLower(keyData[1]) == "true"
+		case tagKeySeparator:
+			t.Separator = keyData[1]
+		default:
+			// just ignoring unsupported keys
+			continue
 		}
 	}
 	return t

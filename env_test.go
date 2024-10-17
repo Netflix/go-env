@@ -16,6 +16,7 @@ package env
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -125,8 +126,7 @@ type JSONData struct {
 
 func (j *JSONData) UnmarshalEnvironmentValue(data string) error {
 	var tmp JSONData
-	err := json.Unmarshal([]byte(data), &tmp)
-	if err != nil {
+	if err := json.Unmarshal([]byte(data), &tmp); err != nil {
 		return err
 	}
 	*j = tmp
@@ -152,23 +152,25 @@ type IterValuesStruct struct {
 }
 
 func TestUnmarshal(t *testing.T) {
-	environ := map[string]string{
-		"HOME":             "/home/test",
-		"WORKSPACE":        "/mnt/builds/slave/workspace/test",
-		"EXTRA":            "extra",
-		"INT":              "1",
-		"UINT":             "4294967295",
-		"FLOAT32":          "2.3",
-		"FLOAT64":          "4.5",
-		"BOOL":             "true",
-		"npm_config_cache": "first",
-		"NPM_CONFIG_CACHE": "second",
-		"TYPE_DURATION":    "5s",
-	}
+	t.Parallel()
+	var (
+		environ = map[string]string{
+			"HOME":             "/home/test",
+			"WORKSPACE":        "/mnt/builds/slave/workspace/test",
+			"EXTRA":            "extra",
+			"INT":              "1",
+			"UINT":             "4294967295",
+			"FLOAT32":          "2.3",
+			"FLOAT64":          "4.5",
+			"BOOL":             "true",
+			"npm_config_cache": "first",
+			"NPM_CONFIG_CACHE": "second",
+			"TYPE_DURATION":    "5s",
+		}
+		validStruct ValidStruct
+	)
 
-	var validStruct ValidStruct
-	err := Unmarshal(environ, &validStruct)
-	if err != nil {
+	if err := Unmarshal(environ, &validStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
@@ -216,13 +218,11 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "5s", validStruct.Duration)
 	}
 
-	v, ok := environ["HOME"]
-	if ok {
+	if v, ok := environ["HOME"]; ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "HOME", v)
 	}
 
-	v, ok = environ["EXTRA"]
-	if !ok {
+	if v, ok := environ["EXTRA"]; !ok {
 		t.Errorf("Expected field '%s' to exist but missing", "EXTRA")
 	} else if v != "extra" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "extra", v)
@@ -230,16 +230,18 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestUnmarshalPointer(t *testing.T) {
-	environ := map[string]string{
-		"POINTER_STRING":         "",
-		"POINTER_INT":            "1",
-		"POINTER_UINT":           "4294967295",
-		"POINTER_POINTER_STRING": "",
-	}
+	t.Parallel()
+	var (
+		environ = map[string]string{
+			"POINTER_STRING":         "",
+			"POINTER_INT":            "1",
+			"POINTER_UINT":           "4294967295",
+			"POINTER_POINTER_STRING": "",
+		}
+		validStruct ValidStruct
+	)
 
-	var validStruct ValidStruct
-	err := Unmarshal(environ, &validStruct)
-	if err != nil {
+	if err := Unmarshal(environ, &validStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
@@ -277,16 +279,18 @@ func TestUnmarshalPointer(t *testing.T) {
 }
 
 func TestCustomUnmarshal(t *testing.T) {
-	someValue := "some value"
-	environ := map[string]string{
-		"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
-		"JSON_DATA":             `{ "someField": 42 }`,
-		"POINTER_JSON_DATA":     `{ "someField": 43 }`,
-	}
+	t.Parallel()
+	var (
+		someValue = "some value"
+		environ   = map[string]string{
+			"BASE64_ENCODED_STRING": base64.StdEncoding.EncodeToString([]byte(someValue)),
+			"JSON_DATA":             `{ "someField": 42 }`,
+			"POINTER_JSON_DATA":     `{ "someField": 43 }`,
+		}
+		validStruct ValidStruct
+	)
 
-	var validStruct ValidStruct
-	err := Unmarshal(environ, &validStruct)
-	if err != nil {
+	if err := Unmarshal(environ, &validStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
@@ -306,34 +310,36 @@ func TestCustomUnmarshal(t *testing.T) {
 }
 
 func TestUnmarshalInvalid(t *testing.T) {
-	environ := make(map[string]string)
+	t.Parallel()
+	var (
+		environ     = make(map[string]string)
+		validStruct ValidStruct
+	)
 
-	var validStruct ValidStruct
-	err := Unmarshal(environ, validStruct)
-	if err != ErrInvalidValue {
+	if err := Unmarshal(environ, validStruct); !errors.Is(err, ErrInvalidValue) {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
 	}
 
 	ptr := &validStruct
-	err = Unmarshal(environ, &ptr)
-	if err != ErrInvalidValue {
+	if err := Unmarshal(environ, &ptr); !errors.Is(err, ErrInvalidValue) {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
 	}
 }
 
 func TestUnmarshalUnsupported(t *testing.T) {
-	environ := map[string]string{
-		"TIMESTAMP": "2016-07-15T12:00:00.000Z",
-	}
+	t.Parallel()
+	var (
+		environ           = map[string]string{"TIMESTAMP": "2016-07-15T12:00:00.000Z"}
+		unsupportedStruct UnsupportedStruct
+	)
 
-	var unsupportedStruct UnsupportedStruct
-	err := Unmarshal(environ, &unsupportedStruct)
-	if err != ErrUnsupportedType {
+	if err := Unmarshal(environ, &unsupportedStruct); !errors.Is(err, ErrUnsupportedType) {
 		t.Errorf("Expected error 'ErrUnsupportedType' but got '%s'", err)
 	}
 }
 
 func TestUnmarshalFromEnviron(t *testing.T) {
+	t.Parallel()
 	environ := os.Environ()
 
 	es, err := EnvironToEnvSet(environ)
@@ -353,40 +359,43 @@ func TestUnmarshalFromEnviron(t *testing.T) {
 		t.Errorf("Expected environment variable to be '%s' but got '%s'", home, validStruct.Home)
 	}
 
-	v, ok := es["HOME"]
-	if ok {
+	if v, ok := es["HOME"]; ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "HOME", v)
 	}
 }
 
 func TestUnmarshalUnexported(t *testing.T) {
-	environ := map[string]string{
-		"HOME": "/home/edgarl",
-	}
+	t.Parallel()
+	var (
+		environ          = map[string]string{"HOME": "/home/edgarl"}
+		unexportedStruct UnexportedStruct
+	)
 
-	var unexportedStruct UnexportedStruct
-	err := Unmarshal(environ, &unexportedStruct)
-	if err != ErrUnexportedField {
+	if err := Unmarshal(environ, &unexportedStruct); !errors.Is(err, ErrUnexportedField) {
 		t.Errorf("Expected error 'ErrUnexportedField' but got '%s'", err)
 	}
 }
 
 func TestUnmarshalSlice(t *testing.T) {
-	environ := map[string]string{
-		"STRING":    "separate|values",
-		"INT":       "1|2",
-		"INT64":     "3|4",
-		"DURATION":  "60s|70h",
-		"BOOL":      "true|false",
-		"KV":        "k1=v1|k2=v2",
-		"SEPARATOR": "1&2", // struct has `separator=&`
-	}
-	var iterValStruct IterValuesStruct
-	err := Unmarshal(environ, &iterValStruct)
-	if err != nil {
+	t.Parallel()
+	var (
+		environ = map[string]string{
+			"STRING":    "separate|values",
+			"INT":       "1|2",
+			"INT64":     "3|4",
+			"DURATION":  "60s|70h",
+			"BOOL":      "true|false",
+			"KV":        "k1=v1|k2=v2",
+			"SEPARATOR": "1&2", // struct has `separator=&`
+		}
+		iterValStruct IterValuesStruct
+	)
+
+	if err := Unmarshal(environ, &iterValStruct); err != nil {
 		t.Errorf("Expected no error but got %v", err)
 		return
 	}
+
 	testCases := [][]interface{}{
 		{iterValStruct.StringSlice, []string{"separate", "values"}},
 		{iterValStruct.IntSlice, []int{1, 2}},
@@ -404,14 +413,16 @@ func TestUnmarshalSlice(t *testing.T) {
 }
 
 func TestUnmarshalDefaultValues(t *testing.T) {
-	environ := map[string]string{
-		"PRESENT": "youFoundMe",
-	}
-	var defaultValueStruct DefaultValueStruct
-	err := Unmarshal(environ, &defaultValueStruct)
-	if err != nil {
+	t.Parallel()
+	var (
+		environ            = map[string]string{"PRESENT": "youFoundMe"}
+		defaultValueStruct DefaultValueStruct
+	)
+
+	if err := Unmarshal(environ, &defaultValueStruct); err != nil {
 		t.Errorf("Expected no error but got %s", err)
 	}
+
 	testCases := [][]interface{}{
 		{defaultValueStruct.DefaultInt, 7},
 		{defaultValueStruct.DefaultUint, uint(4294967295)},
@@ -435,11 +446,17 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 }
 
 func TestUnmarshalRequiredValues(t *testing.T) {
-	environ := map[string]string{}
-	var requiredValuesStruct RequiredValueStruct
+	t.Parallel()
+	var (
+		environ              = make(map[string]string)
+		requiredValuesStruct RequiredValueStruct
+	)
 
 	// Try missing REQUIRED_VAL and REQUIRED_VAL_MORE
 	err := Unmarshal(environ, &requiredValuesStruct)
+	if err == nil {
+		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
+	}
 	errMissing := ErrMissingRequiredValue{Value: "REQUIRED_VAL"}
 	if err.Error() != errMissing.Error() {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
@@ -448,13 +465,16 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 	// Fill REQUIRED_VAL and retry REQUIRED_VAL_MORE
 	environ["REQUIRED_VAL"] = "required"
 	err = Unmarshal(environ, &requiredValuesStruct)
+	if err == nil {
+		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
+	}
 	errMissing = ErrMissingRequiredValue{Value: "REQUIRED_VAL_MORE"}
 	if err.Error() != errMissing.Error() {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
+
 	environ["REQUIRED_VAL_MORE"] = "required"
-	err = Unmarshal(environ, &requiredValuesStruct)
-	if err != nil {
+	if err = Unmarshal(environ, &requiredValuesStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 	if requiredValuesStruct.Required != "required" {
@@ -466,6 +486,7 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
+	t.Parallel()
 	validStruct := ValidStruct{
 		Home: "/home/test",
 		Jenkins: struct {
@@ -535,79 +556,74 @@ func TestMarshal(t *testing.T) {
 }
 
 func TestMarshalInvalid(t *testing.T) {
+	t.Parallel()
 	var validStruct ValidStruct
-	_, err := Marshal(validStruct)
-	if err != ErrInvalidValue {
+	if _, err := Marshal(validStruct); !errors.Is(err, ErrInvalidValue) {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
 	}
 
 	ptr := &validStruct
-	_, err = Marshal(&ptr)
-	if err != ErrInvalidValue {
+	if _, err := Marshal(&ptr); !errors.Is(err, ErrInvalidValue) {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
 	}
 }
 
 func TestMarshalPointer(t *testing.T) {
-	empty := ""
-	validStruct := ValidStruct{
-		PointerString: &empty,
-	}
+	t.Parallel()
+	var (
+		empty       = ""
+		validStruct = ValidStruct{PointerString: &empty}
+	)
+
 	es, err := Marshal(&validStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
-	v, ok := es["POINTER_STRING"]
-	if !ok {
+	if v, ok := es["POINTER_STRING"]; !ok {
 		t.Errorf("Expected field '%s' to exist but missing", "POINTER_STRING")
 	} else if v != "" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "", v)
 	}
 
-	v, ok = es["POINTER_MISSING"]
-	if ok {
+	if v, ok := es["POINTER_MISSING"]; ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "POINTER_MISSING", v)
 	}
 
-	v, ok = es["JENKINS_POINTER_MISSING"]
-	if ok {
+	if v, ok := es["JENKINS_POINTER_MISSING"]; ok {
 		t.Errorf("Expected field '%s' to not exist but got '%s'", "JENKINS_POINTER_MISSING", v)
 	}
 }
 
 func TestMarshalCustom(t *testing.T) {
-	someValue := Base64EncodedString("someValue")
-	validStruct := ValidStruct{
-		Base64EncodedString: someValue,
-		JSONData: JSONData{
-			SomeField: 42,
-		},
-		PointerJSONData: &JSONData{
-			SomeField: 43,
-		},
-	}
+	t.Parallel()
+	var (
+		someValue   = Base64EncodedString("someValue")
+		validStruct = ValidStruct{
+			Base64EncodedString: someValue,
+			JSONData:            JSONData{SomeField: 42},
+			PointerJSONData:     &JSONData{SomeField: 43},
+		}
+	)
+
 	es, err := Marshal(&validStruct)
 	if err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
 	}
 
-	v, ok := es["BASE64_ENCODED_STRING"]
-	if !ok {
+	if v, ok := es["BASE64_ENCODED_STRING"]; !ok {
 		t.Errorf("Expected field '%s' to exist but missing", "BASE64_ENCODED_STRING")
 	} else if v != base64.StdEncoding.EncodeToString([]byte(someValue)) {
 		t.Errorf("Expected field value to be '%s' but got '%s'", base64.StdEncoding.EncodeToString([]byte(someValue)), v)
 	}
 
-	v, ok = es["JSON_DATA"]
-	if !ok {
+	if v, ok := es["JSON_DATA"]; !ok {
 		t.Errorf("Expected field '%s' to exist but got '%s'", "JSON_DATA", v)
 	} else if v != `{"someField":42}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":42}`, v)
 	}
 
-	v, ok = es["POINTER_JSON_DATA"]
-	if !ok {
+	if v, ok := es["POINTER_JSON_DATA"]; !ok {
 		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
 	} else if v != `{"someField":43}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)

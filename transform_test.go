@@ -14,11 +14,13 @@
 package env
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
 
 func TestEnvSetApply(t *testing.T) {
+	t.Parallel()
 	es := EnvSet{
 		"HOME":      "/home/edgarl",
 		"WORKSPACE": "/mnt/builds/slave/workspace/test",
@@ -46,6 +48,7 @@ func TestEnvSetApply(t *testing.T) {
 }
 
 func TestEnvironToEnvSet(t *testing.T) {
+	t.Parallel()
 	environ := []string{"HOME=/home/edgarl", "WORKSPACE=/mnt/builds/slave/workspace/test"}
 
 	m, err := EnvironToEnvSet(environ)
@@ -63,15 +66,16 @@ func TestEnvironToEnvSet(t *testing.T) {
 }
 
 func TestEnvironToEnvSetInvalid(t *testing.T) {
+	t.Parallel()
 	environ := []string{"INVALID"}
 
-	_, err := EnvironToEnvSet(environ)
-	if err != ErrInvalidEnviron {
+	if _, err := EnvironToEnvSet(environ); !errors.Is(err, ErrInvalidEnviron) {
 		t.Errorf("Expected 'ErrInvalidEnviron' but got '%s'", err)
 	}
 }
 
 func TestEnvironToEnvSetSplitN(t *testing.T) {
+	t.Parallel()
 	environ := []string{"SPLIT=one=two"}
 
 	m, err := EnvironToEnvSet(environ)
@@ -85,6 +89,7 @@ func TestEnvironToEnvSetSplitN(t *testing.T) {
 }
 
 func TestEnvSetToEnviron(t *testing.T) {
+	t.Parallel()
 	m := EnvSet{
 		"HOME":      "/home/test",
 		"WORKSPACE": "/mnt/builds/slave/workspace/test",

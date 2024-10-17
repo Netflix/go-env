@@ -16,7 +16,7 @@ import (
 	"log"
 	"time"
 
-	env "github.com/Netflix/go-env"
+	"github.com/Netflix/go-env"
 )
 
 type Environment struct {
@@ -50,7 +50,7 @@ func main() {
 
 	// ...
 
-	es, err = env.Marshal(environment)
+	es, err = env.Marshal(&environment)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,13 +64,20 @@ func main() {
 	es.Apply(cs)
 
 	environment = Environment{}
-	err = env.Unmarshal(es, &environment)
-	if err != nil {
+	if err = env.Unmarshal(es, &environment); err != nil {
 		log.Fatal(err)
 	}
 
 	environment.Extras = es
 }
+```
+
+This will initially throw an error if `IM_REQUIRED` is not set in the environment as part of the env struct validation.
+
+This error can be resolved by setting the `IM_REQUIRED` environment variable manually in the environment or by setting it in the 
+code prior to calling `UnmarshalFromEnviron` with:
+```go
+os.Setenv("IM_REQUIRED", "some_value")
 ```
 
 ## Custom Marshaler/Unmarshaler
@@ -79,12 +86,14 @@ There is limited support for dictating how a field should be marshaled or unmars
 shows how you could marshal/unmarshal from JSON
 
 ```go
+package main
+
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	
-    env "github.com/Netflix/go-env"
+	"github.com/Netflix/go-env"
 )
 
 type SomeData struct {
@@ -93,8 +102,7 @@ type SomeData struct {
 
 func (s *SomeData) UnmarshalEnvironmentValue(data string) error {
     var tmp SomeData
-    err := json.Unmarshal([]byte(data), &tmp)
-	if err != nil {
+	if  err := json.Unmarshal([]byte(data), &tmp); err != nil {
 		return err
 	}
 	*s = tmp 
@@ -114,9 +122,8 @@ type Config struct {
 }
 
 func main() {
-	var cfg Config 
-	_, err := env.UnmarshalFromEnviron(&cfg)
-	if err != nil {
+	var cfg Config
+	if _, err := env.UnmarshalFromEnviron(&cfg); err != nil {
 		log.Fatal(err)
 	}
 
@@ -126,7 +133,7 @@ func main() {
         fmt.Printf("Got nil or some other value: %v\n", cfg.SomeData)
     }
 
-    es, err = env.Marshal(cfg)
+    es, err := env.Marshal(&cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
