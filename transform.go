@@ -19,10 +19,8 @@ import (
 	"strings"
 )
 
-var (
-	// ErrInvalidEnviron returned when environ has an incorrect format.
-	ErrInvalidEnviron = errors.New("items in environ must have format key=value")
-)
+// ErrInvalidEnviron returned when environ has an incorrect format.
+var ErrInvalidEnviron = errors.New("items in environ must have format key=value")
 
 // EnvSet represents a set of environment variables.
 type EnvSet map[string]string
@@ -37,10 +35,10 @@ func (e EnvSet) Apply(cs ChangeSet) {
 		if v == nil {
 			// Equivalent to os.Unsetenv
 			delete(e, k)
-		} else {
-			// Equivalent to os.Setenv
-			e[k] = *v
+			continue
 		}
+		// Equivalent to os.Setenv
+		e[k] = *v
 	}
 }
 
@@ -48,7 +46,10 @@ func (e EnvSet) Apply(cs ChangeSet) {
 // the corresponding EnvSet. If any item in environ does follow the format,
 // EnvironToEnvSet returns ErrInvalidEnviron.
 func EnvironToEnvSet(environ []string) (EnvSet, error) {
-	m := make(EnvSet)
+	// We error out the function on the first invalid item found, so we can
+	// optimistically pre-allocate the EnvSet map with the correct size and
+	// let the GC clean up in the invalid/exit case alongside the function call.
+	m := make(EnvSet, len(environ))
 	for _, v := range environ {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 {
@@ -62,7 +63,7 @@ func EnvironToEnvSet(environ []string) (EnvSet, error) {
 // EnvSetToEnviron transforms a EnvSet into a slice of strings with the format
 // "key=value".
 func EnvSetToEnviron(m EnvSet) []string {
-	var environ []string
+	environ := make([]string, 0, len(m))
 	for k, v := range m {
 		environ = append(environ, fmt.Sprintf("%s=%s", k, v))
 	}
