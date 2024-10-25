@@ -37,6 +37,7 @@ type Environment struct {
 	Duration      time.Duration `env:"TYPE_DURATION"`
 	DefaultValue  string        `env:"MISSING_VAR,default=default_value"`
 	RequiredValue string        `env:"IM_REQUIRED,required=true"`
+	ArrayValue    []string      `env:"ARRAY_VALUE,default=value1|value2|value3"`
 }
 
 func main() {
