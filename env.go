@@ -33,7 +33,7 @@ const (
 	// field is required
 	tagKeyRequired = "required"
 	// tagKeySeparator is the key used in the struct field tag to specify a
-	//separator for slice fields
+	// separator for slice fields
 	tagKeySeparator = "separator"
 )
 
@@ -88,15 +88,11 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		valueField := rv.Field(i)
-		switch valueField.Kind() {
-		case reflect.Struct:
+		if valueField.Kind() == reflect.Struct {
 			if !valueField.Addr().CanInterface() {
 				continue
 			}
-
-			iface := valueField.Addr().Interface()
-			err := Unmarshal(es, iface)
-			if err != nil {
+			if err := Unmarshal(es, valueField.Addr().Interface()); err != nil {
 				return err
 			}
 		}
@@ -291,8 +287,7 @@ func Marshal(v interface{}) (EnvSet, error) {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		valueField := rv.Field(i)
-		switch valueField.Kind() {
-		case reflect.Struct:
+		if valueField.Kind() == reflect.Struct {
 			if !valueField.Addr().CanInterface() {
 				continue
 			}
