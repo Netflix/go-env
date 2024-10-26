@@ -64,6 +64,11 @@ type ValidStruct struct {
 	MultipleTagsWithDefault string `env:"multiple_tags_with_default,MULTIPLE_TAGS_WITH_DEFAULT,default=default_tags_value"`
 
 	TagWithDefault string `env:"tag_with_default,default=default_tag_value"`
+
+	TagWithRequired string `env:"tag_with_required,required=false"`
+
+	TagWithSeparator string `env:"tag_with_separator,separator=&"`
+
 	// time.Duration is supported
 	Duration time.Duration `env:"TYPE_DURATION"`
 
@@ -486,6 +491,8 @@ func TestMarshal(t *testing.T) {
 		MultipleTags:            "foobar",
 		MultipleTagsWithDefault: "baz",
 		TagWithDefault:          "bar",
+		TagWithRequired:         "foo",
+		TagWithSeparator:        "val1&val2",
 		Duration:                3 * time.Minute,
 	}
 
@@ -544,6 +551,22 @@ func TestMarshal(t *testing.T) {
 
 	if environ["tag_with_default"] != "bar" {
 		t.Errorf("Expected field value to be '%s' but got '%s'", "bar", environ["tag_with_default"])
+	}
+
+	if environ["tag_with_required"] != "foo" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "foo", environ["tag_with_required"])
+	}
+
+	if environ["tag_with_separator"] != "val1&val2" {
+		t.Errorf("Expected field value to be '%s' but got '%s'", "val1&val2", environ["tag_with_separator"])
+	}
+
+	if environ["required=true"] != "" {
+		t.Errorf("'required=true' not expected to be a valid field value.")
+	}
+
+	if environ["separator=&"] != "" {
+		t.Errorf("'separator=&' not expected to be a valid field value.")
 	}
 
 	if environ["default=default_tag_value"] != "" {
