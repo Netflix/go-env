@@ -334,6 +334,13 @@ func Marshal(v interface{}) (EnvSet, error) {
 		}
 
 		for _, envKey := range envKeys {
+			// Skip keys with '=', as they represent tag options and not environment variable names.
+			if strings.Contains(envKey, "=") {
+				switch strings.ToLower(strings.SplitN(envKey, "=", 2)[0]) {
+				case "separator", "required", "default":
+					continue
+				}
+			}
 			es[envKey] = envValue
 		}
 	}
