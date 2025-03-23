@@ -19,6 +19,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -332,6 +333,153 @@ func TestUnmarshalInvalid(t *testing.T) {
 	if err := Unmarshal(environ, &ptr); !errors.Is(err, ErrInvalidValue) {
 		t.Errorf("Expected error 'ErrInvalidValue' but got '%s'", err)
 	}
+}
+
+// uint8  : 0 to 255
+// uint16 : 0 to 65535
+// uint32 : 0 to 4294967295
+// uint64 : 0 to 18446744073709551615
+// int8   : -128 to 127
+// int16  : -32768 to 32767
+// int32  : -2147483648 to 2147483647
+// int64  : -9223372036854775808 to 9223372036854775807
+// float32: max 3.4028..e+38
+// float64: max 1.7976..e+308
+func TestUnmarshalInvalidNumber(t *testing.T) {
+	t.Parallel()
+
+	checkErr := func(value any, msg string) {
+		err := Unmarshal(nil, value)
+		if err == nil || !strings.Contains(err.Error(), msg) {
+			t.Errorf("Expected error '%s' but got '%s'", msg, err)
+		}
+	}
+
+	t.Run("when uint", func(t *testing.T) {
+		type invalidUint8Min struct {
+			Value uint8 `env:"invalid,default=-1"`
+		}
+		var uint8Min invalidUint8Min
+		checkErr(&uint8Min, `strconv.ParseUint: parsing "-1": invalid syntax`)
+
+		type invalidUint8Max struct {
+			Value uint8 `env:"invalid,default=256"`
+		}
+		var uint8Max invalidUint8Max
+		checkErr(&uint8Max, `strconv.ParseUint: parsing "256": value out of range`)
+
+		type invalidUint16Min struct {
+			Value uint16 `env:"invalid,default=-1"`
+		}
+		var uint16Min invalidUint16Min
+		checkErr(&uint16Min, `strconv.ParseUint: parsing "-1": invalid syntax`)
+
+		type invalidUint16Max struct {
+			Value uint16 `env:"invalid,default=65536"`
+		}
+		var uint16Max invalidUint16Max
+		checkErr(&uint16Max, `strconv.ParseUint: parsing "65536": value out of range`)
+
+		type invalidUint32Min struct {
+			Value uint32 `env:"invalid,default=-1"`
+		}
+		var uint32Min invalidUint32Min
+		checkErr(&uint32Min, `strconv.ParseUint: parsing "-1": invalid syntax`)
+
+		type invalidUint32Max struct {
+			Value uint32 `env:"invalid,default=4294967296"`
+		}
+		var uint32Max invalidUint32Max
+		checkErr(&uint32Max, `strconv.ParseUint: parsing "4294967296": value out of range`)
+
+		type invalidUint64Min struct {
+			Value uint64 `env:"invalid,default=-1"`
+		}
+		var uint64Min invalidUint64Min
+		checkErr(&uint64Min, `strconv.ParseUint: parsing "-1": invalid syntax`)
+
+		type invalidUint64Max struct {
+			Value uint64 `env:"invalid,default=18446744073709551616"`
+		}
+		var uint64Max invalidUint64Max
+		checkErr(&uint64Max, `strconv.ParseUint: parsing "18446744073709551616": value out of range`)
+	})
+
+	t.Run("when int", func(t *testing.T) {
+		type invalidInt8Min struct {
+			Value int8 `env:"invalid,default=-129"`
+		}
+		var int8Min invalidInt8Min
+		checkErr(&int8Min, `strconv.ParseInt: parsing "-129": value out of range`)
+
+		type invalidInt8Max struct {
+			Value int8 `env:"invalid,default=128"`
+		}
+		var int8Max invalidInt8Max
+		checkErr(&int8Max, `strconv.ParseInt: parsing "128": value out of range`)
+
+		type invalidInt16Min struct {
+			Value int16 `env:"invalid,default=-32769"`
+		}
+		var int16Min invalidInt16Min
+		checkErr(&int16Min, `strconv.ParseInt: parsing "-32769": value out of range`)
+
+		type invalidInt16Max struct {
+			Value int16 `env:"invalid,default=32768"`
+		}
+		var int16Max invalidInt16Max
+		checkErr(&int16Max, `strconv.ParseInt: parsing "32768": value out of range`)
+
+		type invalidInt32Min struct {
+			Value int32 `env:"invalid,default=-2147483649"`
+		}
+		var int32Min invalidInt32Min
+		checkErr(&int32Min, `strconv.ParseInt: parsing "-2147483649": value out of range`)
+
+		type invalidInt32Max struct {
+			Value int32 `env:"invalid,default=2147483648"`
+		}
+		var int32Max invalidInt32Max
+		checkErr(&int32Max, `strconv.ParseInt: parsing "2147483648": value out of range`)
+
+		type invalidInt64Min struct {
+			Value int64 `env:"invalid,default=-9223372036854775809"`
+		}
+		var int64Min invalidInt64Min
+		checkErr(&int64Min, `strconv.ParseInt: parsing "-9223372036854775809": value out of range`)
+
+		type invalidInt64Max struct {
+			Value int64 `env:"invalid,default=9223372036854775808"`
+		}
+		var int64Max invalidInt64Max
+		checkErr(&int64Max, `strconv.ParseInt: parsing "9223372036854775808": value out of range`)
+	})
+
+	t.Run("when float", func(t *testing.T) {
+		type invalidFloat32Min struct {
+			Value float32 `env:"invalid,default=-3.5e+38"`
+		}
+		var float32Min invalidFloat32Min
+		checkErr(&float32Min, `strconv.ParseFloat: parsing "-3.5e+38": value out of range`)
+
+		type invalidFloat32Max struct {
+			Value float32 `env:"invalid,default=3.5e+38"`
+		}
+		var float32Max invalidFloat32Max
+		checkErr(&float32Max, `strconv.ParseFloat: parsing "3.5e+38": value out of range`)
+
+		type invalidFloat64Min struct {
+			Value float64 `env:"invalid,default=-1.8e+308"`
+		}
+		var float64Min invalidFloat64Min
+		checkErr(&float64Min, `strconv.ParseFloat: parsing "-1.8e+308": value out of range`)
+
+		type invalidFloat64Max struct {
+			Value float64 `env:"invalid,default=1.8e+308"`
+		}
+		var float64Max invalidFloat64Max
+		checkErr(&float64Max, `strconv.ParseFloat: parsing "1.8e+308": value out of range`)
+	})
 }
 
 func TestUnmarshalUnsupported(t *testing.T) {
