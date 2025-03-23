@@ -186,14 +186,8 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 			return err
 		}
 		f.SetBool(v)
-	case reflect.Float32:
-		v, err := strconv.ParseFloat(value, 32)
-		if err != nil {
-			return err
-		}
-		f.SetFloat(v)
-	case reflect.Float64:
-		v, err := strconv.ParseFloat(value, 64)
+	case reflect.Float32, reflect.Float64:
+		v, err := strconv.ParseFloat(value, int(t.Size()*8))
 		if err != nil {
 			return err
 		}
@@ -209,13 +203,13 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 			break
 		}
 
-		v, err := strconv.Atoi(value)
+		v, err := strconv.ParseInt(value, 10, int(t.Size()*8))
 		if err != nil {
 			return err
 		}
 		f.SetInt(int64(v))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v, err := strconv.ParseUint(value, 10, 64)
+		v, err := strconv.ParseUint(value, 10, int(t.Size()*8))
 		if err != nil {
 			return err
 		}
