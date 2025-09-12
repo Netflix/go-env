@@ -187,7 +187,11 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	if validStruct.Jenkins.Workspace != "/mnt/builds/slave/workspace/test" {
-		t.Errorf("Expected field value to be '%s' but got '%s'", "/mnt/builds/slave/workspace/test", validStruct.Jenkins.Workspace)
+		t.Errorf(
+			"Expected field value to be '%s' but got '%s'",
+			"/mnt/builds/slave/workspace/test",
+			validStruct.Jenkins.Workspace,
+		)
 	}
 
 	if validStruct.PointerString != nil {
@@ -455,12 +459,10 @@ func TestUnmarshalDefaultValues(t *testing.T) {
 
 func TestUnmarshalRequiredValues(t *testing.T) {
 	t.Parallel()
-	var (
-		environ              = make(map[string]string)
-		requiredValuesStruct RequiredValueStruct
-	)
+	var requiredValuesStruct RequiredValueStruct
 
 	// Try missing REQUIRED_VAL and REQUIRED_VAL_MORE
+	environ := make(map[string]string)
 	err := Unmarshal(environ, &requiredValuesStruct)
 	if err == nil {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
@@ -471,6 +473,7 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 	}
 
 	// Fill REQUIRED_VAL and retry REQUIRED_VAL_MORE
+	environ = make(map[string]string)
 	environ["REQUIRED_VAL"] = "required"
 	err = Unmarshal(environ, &requiredValuesStruct)
 	if err == nil {
@@ -481,6 +484,9 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
 
+	// Fill both required values
+	environ = make(map[string]string)
+	environ["REQUIRED_VAL"] = "required"
 	environ["REQUIRED_VAL_MORE"] = "required"
 	if err = Unmarshal(environ, &requiredValuesStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
@@ -671,5 +677,267 @@ func TestMarshalCustom(t *testing.T) {
 		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
 	} else if v != `{"someField":43}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
+	}
+}
+
+// Config represents the example configuration from the user's request
+type Config struct {
+	Server   ServerConfig   `env:"prefix=SERVER_"`
+	Database DatabaseConfig `env:"prefix=DATABASE_"`
+	JWT      JWTConfig
+	Email    EmailConfig
+	Redis    RedisConfig
+}
+
+// ServerConfig holds server configuration
+type ServerConfig struct {
+	Host string `env:"HOST,default=localhost"`
+	Port string `env:"PORT,default=8080"`
+	Mode string `env:"MODE,default=debug"`
+}
+
+// DatabaseConfig holds database configuration
+type DatabaseConfig struct {
+	Host     string `env:"HOST,default=localhost"`
+	Port     string `env:"PORT,default=5432"`
+	Username string `env:"USERNAME,default=postgres"`
+	Password string `env:"PASSWORD"`
+	Database string `env:"DATABASE,default=myapp"`
+}
+
+// JWTConfig holds JWT configuration (no prefix)
+type JWTConfig struct {
+	Secret     string `env:"JWT_SECRET"`
+	ExpiryTime string `env:"JWT_EXPIRY,default=24h"`
+}
+
+// EmailConfig holds email configuration (no prefix)
+type EmailConfig struct {
+	SMTPHost string `env:"EMAIL_SMTP_HOST,default=localhost"`
+	SMTPPort string `env:"EMAIL_SMTP_PORT,default=587"`
+}
+
+// RedisConfig holds Redis configuration (no prefix)
+type RedisConfig struct {
+	Host string `env:"REDIS_HOST,default=localhost"`
+	Port string `env:"REDIS_PORT,default=6379"`
+}
+
+func TestUnmarshalWithPrefix(t *testing.T) {
+	envs := map[string]string{
+		"SERVER_HOST":       "api.example.com",
+		"SERVER_PORT":       "3000",
+		"SERVER_MODE":       "production",
+		"DATABASE_HOST":     "db.example.com",
+		"DATABASE_PORT":     "5433",
+		"DATABASE_USERNAME": "admin",
+		"DATABASE_PASSWORD": "secret123",
+		"DATABASE_DATABASE": "production_db",
+		"JWT_SECRET":        "super-secret-key",
+		"JWT_EXPIRY":        "48h",
+		"EMAIL_SMTP_HOST":   "smtp.example.com",
+		"EMAIL_SMTP_PORT":   "465",
+		"REDIS_HOST":        "cache.example.com",
+		"REDIS_PORT":        "6380",
+	}
+
+	var config Config
+	err := Unmarshal(envs, &config)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	// Check Server config (should use SERVER_ prefix)
+	if config.Server.Host != "api.example.com" {
+		t.Errorf("Expected Server.Host to be 'api.example.com' but got '%s'", config.Server.Host)
+	}
+	if config.Server.Port != "3000" {
+		t.Errorf("Expected Server.Port to be '3000' but got '%s'", config.Server.Port)
+	}
+	if config.Server.Mode != "production" {
+		t.Errorf("Expected Server.Mode to be 'production' but got '%s'", config.Server.Mode)
+	}
+
+	// Check Database config (should use DATABASE_ prefix)
+	if config.Database.Host != "db.example.com" {
+		t.Errorf("Expected Database.Host to be 'db.example.com' but got '%s'", config.Database.Host)
+	}
+	if config.Database.Port != "5433" {
+		t.Errorf("Expected Database.Port to be '5433' but got '%s'", config.Database.Port)
+	}
+	if config.Database.Username != "admin" {
+		t.Errorf("Expected Database.Username to be 'admin' but got '%s'", config.Database.Username)
+	}
+	if config.Database.Password != "secret123" {
+		t.Errorf("Expected Database.Password to be 'secret123' but got '%s'", config.Database.Password)
+	}
+	if config.Database.Database != "production_db" {
+		t.Errorf("Expected Database.Database to be 'production_db' but got '%s'", config.Database.Database)
+	}
+
+	// Check JWT config (no prefix)
+	if config.JWT.Secret != "super-secret-key" {
+		t.Errorf("Expected JWT.Secret to be 'super-secret-key' but got '%s'", config.JWT.Secret)
+	}
+	if config.JWT.ExpiryTime != "48h" {
+		t.Errorf("Expected JWT.ExpiryTime to be '48h' but got '%s'", config.JWT.ExpiryTime)
+	}
+
+	// Check Email config (no prefix)
+	if config.Email.SMTPHost != "smtp.example.com" {
+		t.Errorf("Expected Email.SMTPHost to be 'smtp.example.com' but got '%s'", config.Email.SMTPHost)
+	}
+	if config.Email.SMTPPort != "465" {
+		t.Errorf("Expected Email.SMTPPort to be '465' but got '%s'", config.Email.SMTPPort)
+	}
+
+	// Check Redis config (no prefix)
+	if config.Redis.Host != "cache.example.com" {
+		t.Errorf("Expected Redis.Host to be 'cache.example.com' but got '%s'", config.Redis.Host)
+	}
+	if config.Redis.Port != "6380" {
+		t.Errorf("Expected Redis.Port to be '6380' but got '%s'", config.Redis.Port)
+	}
+}
+
+func TestUnmarshalWithPrefixDefaults(t *testing.T) {
+	// Test that defaults work correctly with prefixes when environment variables are missing
+	envs := map[string]string{
+		"SERVER_HOST": "custom.example.com", // Only set one server value
+		"JWT_SECRET":  "jwt-key",            // Set JWT secret but not expiry
+	}
+
+	var config Config
+	err := Unmarshal(envs, &config)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	// Check Server config (should use defaults for missing values)
+	if config.Server.Host != "custom.example.com" {
+		t.Errorf("Expected Server.Host to be 'custom.example.com' but got '%s'", config.Server.Host)
+	}
+	if config.Server.Port != "8080" { // Should use default
+		t.Errorf("Expected Server.Port to be '8080' (default) but got '%s'", config.Server.Port)
+	}
+	if config.Server.Mode != "debug" { // Should use default
+		t.Errorf("Expected Server.Mode to be 'debug' (default) but got '%s'", config.Server.Mode)
+	}
+
+	// Check Database config (should use all defaults)
+	if config.Database.Host != "localhost" {
+		t.Errorf("Expected Database.Host to be 'localhost' (default) but got '%s'", config.Database.Host)
+	}
+	if config.Database.Port != "5432" {
+		t.Errorf("Expected Database.Port to be '5432' (default) but got '%s'", config.Database.Port)
+	}
+
+	// Check JWT config
+	if config.JWT.Secret != "jwt-key" {
+		t.Errorf("Expected JWT.Secret to be 'jwt-key' but got '%s'", config.JWT.Secret)
+	}
+	if config.JWT.ExpiryTime != "24h" { // Should use default
+		t.Errorf("Expected JWT.ExpiryTime to be '24h' (default) but got '%s'", config.JWT.ExpiryTime)
+	}
+}
+
+func TestMarshalWithPrefix(t *testing.T) {
+	config := Config{
+		Server: ServerConfig{
+			Host: "api.example.com",
+			Port: "3000",
+			Mode: "production",
+		},
+		Database: DatabaseConfig{
+			Host:     "db.example.com",
+			Port:     "5433",
+			Username: "admin",
+			Password: "secret123",
+			Database: "production_db",
+		},
+		JWT: JWTConfig{
+			Secret:     "super-secret-key",
+			ExpiryTime: "48h",
+		},
+		Email: EmailConfig{
+			SMTPHost: "smtp.example.com",
+			SMTPPort: "465",
+		},
+		Redis: RedisConfig{
+			Host: "cache.example.com",
+			Port: "6380",
+		},
+	}
+
+	es, err := Marshal(&config)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	// Check Server config (should have SERVER_ prefix)
+	if v, ok := es["SERVER_HOST"]; !ok || v != "api.example.com" {
+		t.Errorf("Expected SERVER_HOST to be 'api.example.com' but got '%s' (exists: %v)", v, ok)
+	}
+	if v, ok := es["SERVER_PORT"]; !ok || v != "3000" {
+		t.Errorf("Expected SERVER_PORT to be '3000' but got '%s' (exists: %v)", v, ok)
+	}
+	if v, ok := es["SERVER_MODE"]; !ok || v != "production" {
+		t.Errorf("Expected SERVER_MODE to be 'production' but got '%s' (exists: %v)", v, ok)
+	}
+
+	// Check Database config (should have DATABASE_ prefix)
+	if v, ok := es["DATABASE_HOST"]; !ok || v != "db.example.com" {
+		t.Errorf("Expected DATABASE_HOST to be 'db.example.com' but got '%s' (exists: %v)", v, ok)
+	}
+	if v, ok := es["DATABASE_PORT"]; !ok || v != "5433" {
+		t.Errorf("Expected DATABASE_PORT to be '5433' but got '%s' (exists: %v)", v, ok)
+	}
+
+	// Check JWT config (no prefix)
+	if v, ok := es["JWT_SECRET"]; !ok || v != "super-secret-key" {
+		t.Errorf("Expected JWT_SECRET to be 'super-secret-key' but got '%s' (exists: %v)", v, ok)
+	}
+	if v, ok := es["JWT_EXPIRY"]; !ok || v != "48h" {
+		t.Errorf("Expected JWT_EXPIRY to be '48h' but got '%s' (exists: %v)", v, ok)
+	}
+
+	// Check that non-prefixed vars don't have prefix
+	if _, ok := es["HOST"]; ok {
+		t.Errorf("Expected HOST (without prefix) to not exist in EnvSet")
+	}
+	if _, ok := es["PORT"]; ok {
+		t.Errorf("Expected PORT (without prefix) to not exist in EnvSet")
+	}
+}
+
+func TestNestedPrefixes(t *testing.T) {
+	// Test nested structs with multiple levels of prefixes
+	type Level2 struct {
+		Value string `env:"VALUE"`
+	}
+	type Level1 struct {
+		Nested Level2 `env:"prefix=LEVEL2_"`
+		Direct string `env:"DIRECT"`
+	}
+	type Root struct {
+		Level1 Level1 `env:"prefix=LEVEL1_"`
+	}
+
+	envs := map[string]string{
+		"LEVEL1_LEVEL2_VALUE": "nested_value",
+		"LEVEL1_DIRECT":       "direct_value",
+	}
+
+	var root Root
+	err := Unmarshal(envs, &root)
+	if err != nil {
+		t.Errorf("Expected no error but got '%s'", err)
+	}
+
+	if root.Level1.Nested.Value != "nested_value" {
+		t.Errorf("Expected Level1.Nested.Value to be 'nested_value' but got '%s'", root.Level1.Nested.Value)
+	}
+	if root.Level1.Direct != "direct_value" {
+		t.Errorf("Expected Level1.Direct to be 'direct_value' but got '%s'", root.Level1.Direct)
 	}
 }

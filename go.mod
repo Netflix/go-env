@@ -1,3 +1,3 @@
-module github.com/Netflix/go-env
+module github.com/dimahluodba96/go-env
 
 go 1.23

@@ -35,6 +35,9 @@ const (
 	// tagKeySeparator is the key used in the struct field tag to specify a
 	// separator for slice fields
 	tagKeySeparator = "separator"
+	// tagKeyPrefix is the key used in the struct field tag to specify a prefix
+	// for all environment variables in nested structs
+	tagKeyPrefix = "prefix"
 )
 
 var (
@@ -75,6 +78,11 @@ func (e ErrMissingRequiredValue) Error() string {
 // If the field has a type that is unsupported, Unmarshal returns
 // ErrUnsupportedType.
 func Unmarshal(es EnvSet, v interface{}) error {
+	return unmarshalWithPrefix(es, v, "")
+}
+
+// unmarshalWithPrefix is the internal function that handles prefix functionality
+func unmarshalWithPrefix(es EnvSet, v interface{}, prefix string) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return ErrInvalidValue
@@ -88,17 +96,28 @@ func Unmarshal(es EnvSet, v interface{}) error {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		valueField := rv.Field(i)
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
+
 		if valueField.Kind() == reflect.Struct {
 			if !valueField.Addr().CanInterface() {
 				continue
 			}
-			if err := Unmarshal(es, valueField.Addr().Interface()); err != nil {
+
+			// Check if this struct field has a prefix directive
+			structPrefix := prefix
+			if tag != "" {
+				envTag := parseTag(tag)
+				if envTag.Prefix != "" {
+					structPrefix = prefix + envTag.Prefix // Accumulate prefixes
+				}
+			}
+
+			if err := unmarshalWithPrefix(es, valueField.Addr().Interface(), structPrefix); err != nil {
 				return err
 			}
 		}
 
-		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
@@ -114,7 +133,9 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			ok       bool
 		)
 		for _, envKey := range envTag.Keys {
-			envValue, ok = es[envKey]
+			// Apply prefix to the environment variable name
+			fullEnvKey := prefix + envKey
+			envValue, ok = es[fullEnvKey]
 			if ok {
 				break
 			}
@@ -124,7 +145,7 @@ func Unmarshal(es EnvSet, v interface{}) error {
 			if envTag.Default != "" {
 				envValue = envTag.Default
 			} else if envTag.Required {
-				return &ErrMissingRequiredValue{Value: envTag.Keys[0]}
+				return &ErrMissingRequiredValue{Value: prefix + envTag.Keys[0]}
 			} else {
 				continue
 			}
@@ -133,7 +154,11 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		if err := set(typeField.Type, valueField, envValue, envTag.Separator); err != nil {
 			return err
 		}
-		delete(es, tag)
+		// Use the full prefixed key when deleting from the EnvSet
+		for _, envKey := range envTag.Keys {
+			fullEnvKey := prefix + envKey
+			delete(es, fullEnvKey)
+		}
 	}
 
 	return nil
@@ -273,6 +298,11 @@ func UnmarshalFromEnviron(v interface{}) (EnvSet, error) {
 //
 // Nested structs are traversed recursively.
 func Marshal(v interface{}) (EnvSet, error) {
+	return marshalWithPrefix(v, "")
+}
+
+// marshalWithPrefix is the internal function that handles prefix functionality
+func marshalWithPrefix(v interface{}, prefix string) (EnvSet, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return nil, ErrInvalidValue
@@ -287,12 +317,24 @@ func Marshal(v interface{}) (EnvSet, error) {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		valueField := rv.Field(i)
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
+
 		if valueField.Kind() == reflect.Struct {
 			if !valueField.Addr().CanInterface() {
 				continue
 			}
 
-			nes, err := Marshal(valueField.Addr().Interface())
+			// Check if this struct field has a prefix directive
+			structPrefix := prefix
+			if tag != "" {
+				envTag := parseTag(tag)
+				if envTag.Prefix != "" {
+					structPrefix = prefix + envTag.Prefix // Accumulate prefixes
+				}
+			}
+
+			nes, err := marshalWithPrefix(valueField.Addr().Interface(), structPrefix)
 			if err != nil {
 				return nil, err
 			}
@@ -302,8 +344,6 @@ func Marshal(v interface{}) (EnvSet, error) {
 			}
 		}
 
-		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
@@ -337,18 +377,18 @@ func Marshal(v interface{}) (EnvSet, error) {
 			// Skip keys with '=', as they represent tag options and not environment variable names.
 			if strings.Contains(envKey, "=") {
 				switch strings.ToLower(strings.SplitN(envKey, "=", 2)[0]) {
-				case "separator", "required", "default":
+				case "separator", "required", "default", "prefix":
 					continue
 				}
 			}
-			es[envKey] = envValue
+			// Apply prefix to the environment variable name
+			fullEnvKey := prefix + envKey
+			es[fullEnvKey] = envValue
 		}
 	}
 
 	return es, nil
-}
-
-// tag is a struct used to store the parsed "env" field tag when unmarshalling.
+} // tag is a struct used to store the parsed "env" field tag when unmarshalling.
 type tag struct {
 	// Keys is used to store the keys specified in the "env" field tag
 	Keys []string
@@ -358,6 +398,8 @@ type tag struct {
 	Required bool
 	// Separator is used to split the value of a slice field
 	Separator string
+	// Prefix is used to specify a prefix for all environment variables in nested structs
+	Prefix string
 }
 
 // parseTag is used in the Unmarshal function to parse the "env" field tags
@@ -378,6 +420,8 @@ func parseTag(tagString string) tag {
 			t.Required = strings.ToLower(keyData[1]) == "true"
 		case tagKeySeparator:
 			t.Separator = keyData[1]
+		case tagKeyPrefix:
+			t.Prefix = keyData[1]
 		default:
 			// just ignoring unsupported keys
 			continue
