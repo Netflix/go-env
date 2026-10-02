@@ -110,12 +110,14 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		envTag := parseTag(tag)
 
 		var (
-			envValue string
-			ok       bool
+			envValue   string
+			matchedKey string
+			ok         bool
 		)
 		for _, envKey := range envTag.Keys {
 			envValue, ok = es[envKey]
 			if ok {
+				matchedKey = envKey
 				break
 			}
 		}
@@ -133,7 +135,9 @@ func Unmarshal(es EnvSet, v interface{}) error {
 		if err := set(typeField.Type, valueField, envValue, envTag.Separator); err != nil {
 			return err
 		}
-		delete(es, tag)
+		if ok {
+			delete(es, matchedKey)
+		}
 	}
 
 	return nil

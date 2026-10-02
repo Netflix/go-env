@@ -481,6 +481,8 @@ func TestUnmarshalRequiredValues(t *testing.T) {
 		t.Errorf("Expected error 'ErrMissingRequiredValue' but got '%s'", err)
 	}
 
+	// The previous attempt consumed REQUIRED_VAL before failing on REQUIRED_VAL_MORE.
+	environ["REQUIRED_VAL"] = "required"
 	environ["REQUIRED_VAL_MORE"] = "required"
 	if err = Unmarshal(environ, &requiredValuesStruct); err != nil {
 		t.Errorf("Expected no error but got '%s'", err)
@@ -671,5 +673,50 @@ func TestMarshalCustom(t *testing.T) {
 		t.Errorf("Expected field '%s' to exist but got '%s'", "POINTER_JSON_DATA", v)
 	} else if v != `{"someField":43}` {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
+	}
+}
+
+func TestUnmarshalConsumesMatchedKeys(t *testing.T) {
+	var cfg struct {
+		Required string   `env:"REQUIRED,required=true"`
+		Alias    string   `env:"PRIMARY,FALLBACK"`
+		Values   []string `env:"VALUES,separator=:"`
+		Default  string   `env:"MISSING,default=value"`
+	}
+	es := EnvSet{"REQUIRED": "yes", "FALLBACK": "fallback", "VALUES": "a:b", "UNUSED": "keep"}
+	if err := Unmarshal(es, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(es, EnvSet{"UNUSED": "keep"}) {
+		t.Fatalf("remaining variables: %#v", es)
+	}
+	if cfg.Required != "yes" || cfg.Alias != "fallback" || cfg.Default != "value" || !reflect.DeepEqual(cfg.Values, []string{"a", "b"}) {
+		t.Fatalf("decoded: %#v", cfg)
+	}
+}
+
+func TestUnmarshalPreservesUnusedAlias(t *testing.T) {
+	var cfg struct {
+		Value string `env:"PRIMARY,FALLBACK"`
+	}
+	es := EnvSet{"PRIMARY": "first", "FALLBACK": "second"}
+	if err := Unmarshal(es, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Value != "first" || !reflect.DeepEqual(es, EnvSet{"FALLBACK": "second"}) {
+		t.Fatalf("decoded %q, remaining %#v", cfg.Value, es)
+	}
+}
+
+func TestUnmarshalPreservesInvalidValue(t *testing.T) {
+	var cfg struct {
+		Value int `env:"VALUE,required=true"`
+	}
+	es := EnvSet{"VALUE": "invalid"}
+	if err := Unmarshal(es, &cfg); err == nil {
+		t.Fatal("expected parsing error")
+	}
+	if es["VALUE"] != "invalid" {
+		t.Fatal("invalid input was consumed")
 	}
 }
