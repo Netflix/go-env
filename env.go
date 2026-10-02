@@ -225,8 +225,8 @@ func set(t reflect.Type, f reflect.Value, value, sliceSeparator string) error {
 			sliceSeparator = "|"
 		}
 		values := strings.Split(value, sliceSeparator)
-		switch t.Elem().Kind() {
-		case reflect.String:
+		switch t.Elem() {
+		case reflect.TypeOf(""):
 			// already []string, just set directly
 			f.Set(reflect.ValueOf(values))
 		default:

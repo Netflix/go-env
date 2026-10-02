@@ -673,3 +673,22 @@ func TestMarshalCustom(t *testing.T) {
 		t.Errorf("Expected field value to be '%s' but got '%s'", `{"someField":43}`, v)
 	}
 }
+
+type namedString string
+
+func TestUnmarshalNamedStringSlices(t *testing.T) {
+	var cfg struct {
+		Values []namedString         `env:"VALUES"`
+		Custom []Base64EncodedString `env:"CUSTOM,separator=:"`
+	}
+	es := EnvSet{"VALUES": "first|second", "CUSTOM": "Zmlyc3Q=:c2Vjb25k"}
+	if err := Unmarshal(es, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Values, []namedString{"first", "second"}) {
+		t.Fatalf("values: %#v", cfg.Values)
+	}
+	if !reflect.DeepEqual(cfg.Custom, []Base64EncodedString{"first", "second"}) {
+		t.Fatalf("custom: %#v", cfg.Custom)
+	}
+}
