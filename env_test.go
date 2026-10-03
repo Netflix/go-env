@@ -612,6 +612,33 @@ func TestMarshalInvalid(t *testing.T) {
 	}
 }
 
+func TestMarshalUnexported(t *testing.T) {
+	value := "private"
+	for _, tc := range []struct {
+		name  string
+		value interface{}
+	}{
+		{"scalar", &struct {
+			hidden string `env:"HIDDEN"`
+		}{value}},
+		{"pointer", &struct {
+			hidden *string `env:"HIDDEN"`
+		}{&value}},
+		{"nil pointer", &struct {
+			hidden *string `env:"HIDDEN"`
+		}{}},
+		{"struct", &struct {
+			hidden struct{} `env:"HIDDEN"`
+		}{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := Marshal(tc.value); !errors.Is(err, ErrUnexportedField) {
+				t.Fatalf("expected ErrUnexportedField, got %v", err)
+			}
+		})
+	}
+}
+
 func TestMarshalPointer(t *testing.T) {
 	t.Parallel()
 	var (

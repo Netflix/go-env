@@ -272,6 +272,7 @@ func UnmarshalFromEnviron(v interface{}) (EnvSet, error) {
 // string format. Values without the "env" field tag are ignored.
 //
 // Nested structs are traversed recursively.
+// Tagged unexported fields cause Marshal to return ErrUnexportedField.
 func Marshal(v interface{}) (EnvSet, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -287,6 +288,11 @@ func Marshal(v interface{}) (EnvSet, error) {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		valueField := rv.Field(i)
+		typeField := t.Field(i)
+		tag := typeField.Tag.Get("env")
+		if tag != "" && !valueField.CanInterface() {
+			return nil, ErrUnexportedField
+		}
 		if valueField.Kind() == reflect.Struct {
 			if !valueField.Addr().CanInterface() {
 				continue
@@ -302,8 +308,6 @@ func Marshal(v interface{}) (EnvSet, error) {
 			}
 		}
 
-		typeField := t.Field(i)
-		tag := typeField.Tag.Get("env")
 		if tag == "" {
 			continue
 		}
