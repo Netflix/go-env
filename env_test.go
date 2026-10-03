@@ -639,6 +639,37 @@ func TestMarshalPointer(t *testing.T) {
 	}
 }
 
+type pointerEncodedString string
+
+func (s *pointerEncodedString) MarshalEnvironmentValue() (string, error) {
+	if *s == "" {
+		return "", errors.New("empty custom value")
+	}
+	return "encoded:" + string(*s), nil
+}
+
+func TestMarshalPointerReceiver(t *testing.T) {
+	value := pointerEncodedString("value")
+	config := struct {
+		Value   pointerEncodedString  `env:"VALUE"`
+		Pointer *pointerEncodedString `env:"POINTER"`
+		Missing *pointerEncodedString `env:"MISSING"`
+	}{Value: value, Pointer: &value}
+	es, err := Marshal(&config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := EnvSet{"VALUE": "encoded:value", "POINTER": "encoded:value"}
+	if !reflect.DeepEqual(es, want) {
+		t.Fatalf("expected %v, got %v", want, es)
+	}
+
+	config.Value = ""
+	if _, err := Marshal(&config); err == nil || err.Error() != "empty custom value" {
+		t.Fatalf("expected custom marshaler error, got %v", err)
+	}
+}
+
 func TestMarshalCustom(t *testing.T) {
 	t.Parallel()
 	var (

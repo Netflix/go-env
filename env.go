@@ -272,6 +272,7 @@ func UnmarshalFromEnviron(v interface{}) (EnvSet, error) {
 // string format. Values without the "env" field tag are ignored.
 //
 // Nested structs are traversed recursively.
+// Custom Marshaler implementations may use either value or pointer receivers.
 func Marshal(v interface{}) (EnvSet, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -315,9 +316,17 @@ func Marshal(v interface{}) (EnvSet, error) {
 			if valueField.IsNil() {
 				continue
 			}
-			el = valueField.Elem().Interface()
+			el = valueField.Interface()
+			if _, ok := el.(Marshaler); !ok {
+				el = valueField.Elem().Interface()
+			}
 		} else {
 			el = valueField.Interface()
+			if valueField.CanAddr() && valueField.Addr().CanInterface() {
+				if m, ok := valueField.Addr().Interface().(Marshaler); ok {
+					el = m
+				}
+			}
 		}
 
 		var (
